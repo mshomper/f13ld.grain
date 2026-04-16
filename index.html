@@ -9,9 +9,12 @@
 html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
 #container{display:flex;flex-direction:column;height:100vh}
 #cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
-canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+canvas{display:block;width:100%;height:100%}
 #status{position:absolute;top:10px;right:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
 #indicators{position:absolute;top:10px;left:10px;display:none;gap:8px;flex-direction:column;pointer-events:none}
+#qualityOverlay{position:absolute;bottom:10px;right:10px;display:none;gap:4px;z-index:10}
+#qualityOverlay button{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer;transition:color 0.15s,border-color 0.15s}
+#qualityOverlay button.active{color:#22d3ee;border-color:#22d3ee}
 .ind-pill{display:flex;align-items:center;gap:5px;background:rgba(6,8,15,0.85);padding:4px 8px;border-radius:6px;font-size:10px;border:0.5px solid #2a2a3a;white-space:nowrap}
 .ind-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .ind-label{color:#555;text-transform:uppercase;letter-spacing:0.06em}
@@ -48,6 +51,11 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
     <div id="indicators">
       <div class="ind-pill"><div class="ind-dot" id="dotNoise" style="background:#22d3ee"></div><span class="ind-label">field</span><span id="labelNoise" style="color:#22d3ee;font-size:10px">ready</span></div>
       <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:#22d3ee"></div><span class="ind-label">shader</span><span id="labelShader" style="color:#22d3ee;font-size:10px">ready</span></div>
+    </div>
+    <div id="qualityOverlay">
+      <button id="btnQLow"  class="active" onclick="onQualityChange('low')">Low</button>
+      <button id="btnQMed"  onclick="onQualityChange('medium')">Med</button>
+      <button id="btnQHigh" onclick="onQualityChange('high')">High</button>
     </div>
   </div>
   <div id="panel">
@@ -190,12 +198,12 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
 </div>
 <script>
 var currentViewMode='section',currentSliceAxis='z',currentResolution=128,currentGrid=null;
-var topoMode='sheet',dirMode='single',debounceTimer=null,lastHomogResult=null;
+var topoMode='sheet',dirMode='single',debounceTimer=null,lastHomogResult=null,currentQuality='low';
 var IND_READY='#22d3ee',IND_WORKING='#f59e0b';
 
 function setNoiseStatus(w){var d=document.getElementById('dotNoise'),l=document.getElementById('labelNoise');d.style.background=w?IND_WORKING:IND_READY;l.style.color=w?IND_WORKING:IND_READY;l.textContent=w?'computing':'ready';}
 function setShaderStatus(w){var d=document.getElementById('dotShader'),l=document.getElementById('labelShader');d.style.background=w?IND_WORKING:IND_READY;l.style.color=w?IND_WORKING:IND_READY;l.textContent=w?'compiling':'ready';}
-function showIndicators(show){document.getElementById('indicators').style.display=show?'flex':'none';document.getElementById('status').style.display=show?'none':'block';}
+function showIndicators(show){document.getElementById('indicators').style.display=show?'flex':'none';document.getElementById('status').style.display=show?'none':'block';document.getElementById('qualityOverlay').style.display=show?'flex':'none';}
 
 function mulberry32(seed){var s=seed|0;return function(){s=(s^(s<<13))>>>0;s=(s^(s>>17))>>>0;s=(s^(s<<5))>>>0;return s/4294967296;};}
 
@@ -537,7 +545,7 @@ Raymarcher.prototype._buildFragHU=function(params){
     '  float tEn=max(max(tmi.x,tmi.y),tmi.z);float tEx=min(min(tma.x,tma.y),tma.z);',
     '  if(tEn>tEx||tEx<0.0){gl_FragColor=vec4(bgCol,1.0);return;}',
     '  float t=max(tEn,0.001);bool hit=false;',
-    '  for(int i=0;i<280;i++){if(t>tEx)break;vec3 p=ro+rd*t;float d=implicit(p);if(d<thresh){hit=true;break;}t+=stepSize;}',
+    '  for(int i=0;i<'+(params.quality==='high'?'1130':params.quality==='medium'?'560':'280')+';i++){if(t>tEx)break;vec3 p=ro+rd*t;float d=implicit(p);if(d<thresh){hit=true;break;}t+=stepSize;}',
     '  vec3 pos;vec3 n;',
     '  if(hit){pos=ro+rd*t;n=nrmField(pos,nrmE);if(dot(n,-rd)<0.0)n=-n;}',
     '  else{gl_FragColor=vec4(bgCol,1.0);return;}',
@@ -608,7 +616,7 @@ Raymarcher.prototype._buildFrag=function(params){
     '  if(tEn>tEx||tEx<0.0){gl_FragColor=vec4(bgCol,1.0);return;}',
     '  float t=max(tEn,0.001);bool hit=false;bool nearCap=false;',
     '  if(implicit(ro+rd*t)<0.0)nearCap=true;',
-    '  if(!nearCap){for(int i=0;i<192;i++){if(t>tEx)break;vec3 p=ro+rd*t;float d=implicit(p);if(d<thresh){hit=true;break;}t+=clamp(d/lipschitz*0.85,thresh*0.5,maxStep);}}',
+    '  if(!nearCap){for(int i=0;i<'+(params.quality==='high'?'512':params.quality==='medium'?'256':'128')+';i++){if(t>tEx)break;vec3 p=ro+rd*t;float d=implicit(p);if(d<thresh){hit=true;break;}t+=clamp(d/lipschitz*0.85,thresh*0.5,maxStep);}}',
     '  vec3 pos;vec3 n;',
     '  if(nearCap){pos=ro+rd*tEn;n=boxNormal(pos,H);if(dot(n,-rd)<0.0)n=-n;t=tEn;}',
     '  else if(hit){pos=ro+rd*t;n=nrmField(pos,nrmE);if(dot(n,-rd)<0.0)n=-n;}',
@@ -631,8 +639,8 @@ Raymarcher.prototype._buildFrag=function(params){
 
 Raymarcher.prototype._submitShader=function(params){var gl=this.gl;var vs='attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}';var fs=this._buildFrag(params);var vs_=this._mkShader(gl.VERTEX_SHADER,vs);var fs_=this._mkShader(gl.FRAGMENT_SHADER,fs);if(!vs_||!fs_)return;var prg=gl.createProgram();gl.attachShader(prg,vs_);gl.attachShader(prg,fs_);gl.linkProgram(prg);gl.deleteShader(vs_);gl.deleteShader(fs_);if(this._pendingProg)gl.deleteProgram(this._pendingProg);this._pendingProg=prg;this._pendingParams=params;this._compiling=true;setShaderStatus(true);};
 Raymarcher.prototype._activateProgram=function(prg){var gl=this.gl;if(this.prog&&this.prog!==prg)gl.deleteProgram(this.prog);this.prog=prg;gl.useProgram(prg);gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);var loc=gl.getAttribLocation(prg,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);this.uRes=gl.getUniformLocation(prg,'res');this.uRot=gl.getUniformLocation(prg,'rot');this.uZoom=gl.getUniformLocation(prg,'zoom');this.uThick=gl.getUniformLocation(prg,'thickness');this.uIso=gl.getUniformLocation(prg,'isoLevel');this.uInvertSign=gl.getUniformLocation(prg,'invertSign');this.uTopoMode=gl.getUniformLocation(prg,'uTopoMode');};
-Raymarcher.prototype.setParams=function(params){if(!this.gl)return;var prev=this.currentParams;var needRebuild=!prev||(!this.prog&&!this._compiling)||params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.topoMode!==prev.topoMode;this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}this._dirty=true;if(!this._loopRunning)this._startLoop();};
-Raymarcher.prototype.render=function(){var gl=this.gl;if(!gl)return;if(this._compiling&&this._pendingProg){var ready=true;if(this._khr)ready=gl.getProgramParameter(this._pendingProg,this._khr.COMPLETION_STATUS_KHR);if(ready){if(gl.getProgramParameter(this._pendingProg,gl.LINK_STATUS)){this._activateProgram(this._pendingProg);setShaderStatus(false);}else{console.error('Shader link failed:',gl.getProgramInfoLog(this._pendingProg));gl.deleteProgram(this._pendingProg);setShaderStatus(false);document.getElementById('status').textContent='Shader error';}this._pendingProg=null;this._compiling=false;this._dirty=true;}}if(!this.prog)return;var cssW=this.canvas.clientWidth,cssH=this.canvas.clientHeight;if(cssW===0||cssH===0)return;var MAX_DIM=420,scale=Math.min(1.0,MAX_DIM/Math.max(cssW,cssH)),w=Math.round(cssW*scale),h=Math.round(cssH*scale);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}gl.viewport(0,0,w,h);gl.useProgram(this.prog);gl.uniform2f(this.uRes,w,h);gl.uniformMatrix3fv(this.uRot,false,new Float32Array(this.rotMat));gl.uniform1f(this.uZoom,this.camZoom);if(this.currentParams){var p=this.currentParams;gl.uniform1f(this.uThick,p.thickness);gl.uniform1f(this.uIso,p.isoLevel||0);gl.uniform1f(this.uInvertSign,p.invert?-1.0:1.0);gl.uniform1f(this.uTopoMode,p.topoMode==='half'?1.0:p.topoMode==='solid'?2.0:0.0);}gl.drawArrays(gl.TRIANGLE_STRIP,0,4);this._dirty=false;};
+Raymarcher.prototype.setParams=function(params){if(!this.gl)return;var prev=this.currentParams;var needRebuild=!prev||(!this.prog&&!this._compiling)||params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.topoMode!==prev.topoMode||params.quality!==prev.quality;this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}this._dirty=true;if(!this._loopRunning)this._startLoop();};
+Raymarcher.prototype.render=function(){var gl=this.gl;if(!gl)return;if(this._compiling&&this._pendingProg){var ready=true;if(this._khr)ready=gl.getProgramParameter(this._pendingProg,this._khr.COMPLETION_STATUS_KHR);if(ready){if(gl.getProgramParameter(this._pendingProg,gl.LINK_STATUS)){this._activateProgram(this._pendingProg);setShaderStatus(false);}else{console.error('Shader link failed:',gl.getProgramInfoLog(this._pendingProg));gl.deleteProgram(this._pendingProg);setShaderStatus(false);document.getElementById('status').textContent='Shader error';}this._pendingProg=null;this._compiling=false;this._dirty=true;}}if(!this.prog)return;var cssW=this.canvas.clientWidth,cssH=this.canvas.clientHeight;if(cssW===0||cssH===0)return;var dpr=Math.min(window.devicePixelRatio||1,1.5),w=Math.round(cssW*dpr),h=Math.round(cssH*dpr);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}gl.viewport(0,0,w,h);gl.useProgram(this.prog);gl.uniform2f(this.uRes,w,h);gl.uniformMatrix3fv(this.uRot,false,new Float32Array(this.rotMat));gl.uniform1f(this.uZoom,this.camZoom);if(this.currentParams){var p=this.currentParams;gl.uniform1f(this.uThick,p.thickness);gl.uniform1f(this.uIso,p.isoLevel||0);gl.uniform1f(this.uInvertSign,p.invert?-1.0:1.0);gl.uniform1f(this.uTopoMode,p.topoMode==='half'?1.0:p.topoMode==='solid'?2.0:0.0);}gl.drawArrays(gl.TRIANGLE_STRIP,0,4);this._dirty=false;};
 Raymarcher.prototype._startLoop=function(){var self=this;self._loopRunning=true;var lastTs=0;function loop(ts){var dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;if(self.running){if(self.autoRot){self._applyDelta(dt*30,0);self._dirty=true;}if(self._dirty||self._compiling){self.rotMat=self._orthonorm(self.rotMat);self.render();}}requestAnimationFrame(loop);}requestAnimationFrame(loop);};
 
 // Stiffness ellipsoid (verbatim from noise tool)
@@ -662,7 +670,7 @@ function displayHomoResults(res,N,Es){function card(label,value,unit,color){retu
 // Orchestration
 var gridGen=null,raymarcher=null,sectionViewer=null;
 
-function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:parseFloat(document.getElementById('huWidth').value),huN:parseInt(document.getElementById('huN').value),topoMode:topoMode,invert:topoMode==='solid',resolution:currentResolution};}
+function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:parseFloat(document.getElementById('huWidth').value),huN:parseInt(document.getElementById('huN').value),topoMode:topoMode,invert:topoMode==='solid',quality:currentQuality,resolution:currentResolution};}
 
 function updateControlVisibility(){
   var ft=document.getElementById('fieldType').value;
@@ -695,6 +703,13 @@ function updateControlVisibility(){
 }
 function onFieldTypeChange(){
   updateControlVisibility();
+  regenerate();
+}
+function onQualityChange(q){
+  currentQuality=q;
+  document.getElementById('btnQLow' ).classList.toggle('active',q==='low');
+  document.getElementById('btnQMed' ).classList.toggle('active',q==='medium');
+  document.getElementById('btnQHigh').classList.toggle('active',q==='high');
   regenerate();
 }
 function regenerate(){if(!gridGen||!sectionViewer||!raymarcher)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(function(){var params=getParams();if(currentViewMode==='sheet'){raymarcher.setParams(params);}else{document.getElementById('status').textContent='Generating...';setTimeout(function(){var t0=performance.now();currentGrid=gridGen.generate(params);sectionViewer.updateGrid(currentGrid,params.resolution);document.getElementById('status').textContent='Generated in '+(performance.now()-t0).toFixed(0)+'ms';},50);}},300);}
