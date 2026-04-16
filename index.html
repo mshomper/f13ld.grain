@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spinodoid Field Explorer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
+#container{display:flex;flex-direction:column;height:100vh}
+#cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+#status{position:absolute;top:10px;right:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
+#indicators{position:absolute;top:10px;left:10px;display:none;gap:8px;flex-direction:column;pointer-events:none}
+.ind-pill{display:flex;align-items:center;gap:5px;background:rgba(6,8,15,0.85);padding:4px 8px;border-radius:6px;font-size:10px;border:0.5px solid #2a2a3a;white-space:nowrap}
+.ind-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ind-label{color:#555;text-transform:uppercase;letter-spacing:0.06em}
+#panel{background:#111118;border:0.5px solid #2a2a3a;border-top:none;border-radius:0 0 12px 12px;padding:12px 14px;overflow-y:auto;max-height:52vh;margin:0 14px 14px}
+h1{font-size:13px;font-weight:500;color:#7c8aaa;letter-spacing:0.08em;text-transform:uppercase;margin:14px 14px 10px;flex-shrink:0}
+hr.divider{border:none;border-top:0.5px solid #2a2a3a;margin:10px 0}
+.sec-lbl{font-size:10px;color:#18f370;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
+.sc-group{display:flex;align-items:center;gap:6px;margin-bottom:22px}
+.sc-group label{font-size:12px;color:#888;white-space:nowrap;min-width:84px}
+.sc-group input[type=range]{flex:1;accent-color:#22d3ee;height:5px;background:#1a1a2e;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none}
+.sc-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
+.sc-group input[type=range]::-moz-range-thumb{width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
+.sc-group .sv{font-size:12px;font-weight:500;color:#e0e0ff;min-width:40px;font-variant-numeric:tabular-nums;text-align:right}
+.mode-strip{display:flex;gap:4px}
+.mode-btn{font-size:11px;padding:3px 10px;border:0.5px solid #3a3a5a;border-radius:20px;background:transparent;color:#888;cursor:pointer}
+.mode-btn.active{background:#7c6ff7;color:#fff;border-color:#7c6ff7}
+select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;cursor:pointer;width:100%}
+input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;width:56px;text-align:center}
+.surf-controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
+#runHomoBtn{font-size:12px;padding:4px 14px;border:0.5px solid #7c6ff7;border-radius:20px;background:#7c6ff7;color:#fff;cursor:pointer;font-weight:500}
+#runHomoBtn:disabled{opacity:0.5;cursor:default}
+#exportBtn{font-size:12px;padding:3px 10px;border:0.5px solid #2a2a3a;border-radius:20px;background:transparent;color:#666;cursor:pointer;width:100%;margin-top:6px}
+.homo-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
+.homo-controls label{font-size:12px;color:#888;display:flex;align-items:center;gap:4px}
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>Spinodoid Field Explorer <span style="font-size:10px;color:#3a3a5a;margin-left:6px">v0.1</span></h1>
+  <div id="cw">
+    <canvas id="glCanvas" style="display:none;"></canvas>
+    <canvas id="sectionCanvas"></canvas>
+    <div id="status">Ready</div>
+    <div id="indicators">
+      <div class="ind-pill"><div class="ind-dot" id="dotNoise" style="background:#22d3ee"></div><span class="ind-label">field</span><span id="labelNoise" style="color:#22d3ee;font-size:10px">ready</span></div>
+      <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:#22d3ee"></div><span class="ind-label">shader</span><span id="labelShader" style="color:#22d3ee;font-size:10px">ready</span></div>
+    </div>
+  </div>
+  <div id="panel">
+    <div class="surf-controls">
+      <div class="sc-group">
+        <label>view</label>
+        <div class="mode-strip">
+          <button class="mode-btn" id="btnViewSheet" onclick="onViewModeChange('sheet')">Field 3D</button>
+          <button class="mode-btn active" id="btnViewSection" onclick="onViewModeChange('section')">Section 2D</button>
+        </div>
+      </div>
+      <div class="sc-group" id="sliceControl">
+        <label>slice pos</label>
+        <div class="mode-strip" style="margin-right:4px">
+          <button class="mode-btn active" id="btnAxisZ" onclick="onSliceAxisChange('z')">Z</button>
+          <button class="mode-btn" id="btnAxisY" onclick="onSliceAxisChange('y')">Y</button>
+          <button class="mode-btn" id="btnAxisX" onclick="onSliceAxisChange('x')">X</button>
+        </div>
+        <input type="range" id="slicePos" min="0" max="1" step="0.01" value="0.5" oninput="onSliceChange(this)">
+        <span class="sv" id="sliceValue">0.50</span>
+      </div>
+    </div>
+    <hr class="divider">
+    <div style="margin-bottom:8px">
+      <div class="sec-lbl">field type</div>
+      <select id="fieldType" onchange="onFieldTypeChange()">
+        <option value="spinodoid">Spinodoid (VMF wave superposition)</option>
+        <option value="gaussian">Gaussian random field (spectral)</option>
+        <option value="hyperuniform">Hyperuniform kernel field</option>
+      </select>
+    </div>
+    <div id="grfControls" style="display:none;margin-top:6px">
+      <div class="sc-group"><label>bandwidth &sigma;</label><input type="range" id="grfSigma" min="0.1" max="1.0" step="0.05" value="0.45" oninput="onParamChange(this,'grfSigmaValue')"><span class="sv" id="grfSigmaValue">0.45</span></div>
+      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">Low &sigma; &rarr; near-periodic cells &nbsp;&middot;&nbsp; High &sigma; &rarr; broad irregular foam</div>
+    </div>
+    <hr class="divider">
+    <div id="huControls" style="display:none;margin-top:6px">
+      <div class="sc-group"><label>aspect ratio</label><input type="range" id="huAspect" min="1" max="12" step="0.5" value="4" oninput="onParamChange(this,'huAspectValue')"><span class="sv" id="huAspectValue">4.0</span></div>
+      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">Kernel length/width &mdash; 1=spherical &nbsp;&middot;&nbsp; 4&ndash;8=beam-like &nbsp;&middot;&nbsp; 10+=rod-like</div>
+      <div class="sc-group"><label>kernel width</label><input type="range" id="huWidth" min="0.01" max="0.15" step="0.005" value="0.04" oninput="onParamChange(this,'huWidthValue')"><span class="sv" id="huWidthValue">0.040</span></div>
+      <div class="sc-group"><label>N kernels</label><input type="range" id="huN" min="10" max="200" step="5" value="30" oninput="onParamChange(this,'huNValue')"><span class="sv" id="huNValue">30</span></div>
+      <div id="huPerfHint" style="display:none;font-size:10px;color:#f59e0b;margin-top:2px;margin-bottom:6px;line-height:1.5">&#9888; N&gt;80 may be slow in 3D — use Section 2D for high-N exploration.</div>
+    </div>
+    <div class="sec-lbl">directional bias</div>
+    <div class="surf-controls" style="margin-bottom:6px">
+      <div class="sc-group" style="margin-bottom:0">
+        <label>mode</label>
+        <div class="mode-strip">
+          <button class="mode-btn active" id="btnDirSingle" onclick="onDirModeChange('single')">Single</button>
+          <button class="mode-btn" id="btnDirOrtho" onclick="onDirModeChange('ortho')">Orthotropic</button>
+          <button class="mode-btn" id="btnDirIso" onclick="onDirModeChange('iso')">Isotropic</button>
+        </div>
+      </div>
+    </div>
+    <div id="singleDirControls">
+      <div class="sc-group">
+        <label>dir &theta; (polar)</label>
+        <input type="range" id="dirTheta" min="0" max="180" step="1" value="0" oninput="onParamChange(this,'dirThetaValue')">
+        <span class="sv" id="dirThetaValue">0&deg;</span>
+      </div>
+      <div class="sc-group">
+        <label>dir &phi; (azimuth)</label>
+        <input type="range" id="dirPhi" min="0" max="360" step="1" value="0" oninput="onParamChange(this,'dirPhiValue')">
+        <span class="sv" id="dirPhiValue">0&deg;</span>
+      </div>
+    </div>
+    <div id="orthoDirControls" style="display:none">
+      <div style="font-size:11px;color:#555;margin-bottom:6px;line-height:1.5">Three principal axes X/Y/Z with independent concentration weights.</div>
+      <div class="sc-group"><label>weight X</label><input type="range" id="wX" min="0" max="1" step="0.05" value="0.33" oninput="onParamChange(this,'wXValue')"><span class="sv" id="wXValue">0.33</span></div>
+      <div class="sc-group"><label>weight Y</label><input type="range" id="wY" min="0" max="1" step="0.05" value="0.33" oninput="onParamChange(this,'wYValue')"><span class="sv" id="wYValue">0.33</span></div>
+      <div class="sc-group"><label>weight Z</label><input type="range" id="wZ" min="0" max="1" step="0.05" value="0.34" oninput="onParamChange(this,'wZValue')"><span class="sv" id="wZValue">0.34</span></div>
+    </div>
+    <div id="kappaRow" class="sc-group"><label>concentration &kappa;</label><input type="range" id="kappa" min="0" max="20" step="0.5" value="6" oninput="onParamChange(this,'kappaValue')"><span class="sv" id="kappaValue">6.0</span></div>
+    <div id="kappaHint" style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">&kappa;=0 isotropic foam &nbsp;&middot;&nbsp; &kappa;&asymp;4&ndash;8 trabecular &nbsp;&middot;&nbsp; &kappa;&ge;12 aligned rods</div>
+    <div id="nWavesRow" class="sc-group"><label>N waves</label><input type="range" id="nWaves" min="8" max="128" step="4" value="48" oninput="onParamChange(this,'nWavesValue')"><span class="sv" id="nWavesValue">48</span></div>
+    <div id="frequencyRow" class="sc-group"><label>frequency</label><input type="range" id="frequency" min="0.01" max="1.0" step="0.01" value="0.15" oninput="onParamChange(this,'freqValue')"><span class="sv" id="freqValue">0.25</span></div>
+    <div class="sc-group"><label>RNG seed</label><input type="range" id="rngSeed" min="1" max="999" step="1" value="42" oninput="onParamChange(this,'rngSeedValue')"><span class="sv" id="rngSeedValue">42</span></div>
+    <hr class="divider">
+    <div class="sec-lbl">scaffold geometry</div>
+    <div class="surf-controls" style="margin-bottom:6px">
+      <div class="sc-group" style="margin-bottom:0">
+        <label>topology</label>
+        <div class="mode-strip">
+          <button class="mode-btn active" id="btnSheet" onclick="onTopologyToggle('sheet')">Sheet</button>
+          <button class="mode-btn" id="btnHalf" onclick="onTopologyToggle('half')">Half-solid</button>
+          <button class="mode-btn" id="btnSolid" onclick="onTopologyToggle('solid')">Solid</button>
+        </div>
+      </div>
+    </div>
+    <div class="sc-group"><label>center</label><input type="range" id="isoLevel" min="-1" max="1" step="0.01" value="0" oninput="onParamChange(this,'isoValue')"><span class="sv" id="isoValue">0.00</span></div>
+    <div class="sc-group" id="thicknessRow"><label>half-width</label><input type="range" id="thickness" min="0.01" max="0.5" step="0.01" value="0.15" oninput="onParamChange(this,'thicknessValue')"><span class="sv" id="thicknessValue">0.15</span></div>
+    <div id="smoothingRow" class="sc-group"><label>smoothing</label><input type="range" id="smoothing" min="0" max="1" step="0.01" value="0" oninput="onParamChange(this,'smoothingValue')"><span class="sv" id="smoothingValue">0.00</span></div>
+    <div class="surf-controls" style="margin-bottom:0">
+      <div class="sc-group" style="margin-bottom:0">
+        <label>resolution</label>
+        <div class="mode-strip">
+          <button class="mode-btn" id="btn64" onclick="onResChange(64)">64&#179;</button>
+          <button class="mode-btn active" id="btn128" onclick="onResChange(128)">128&#179;</button>
+          <button class="mode-btn" id="btn256" onclick="onResChange(256)">256&#179;</button>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="sec-lbl">homogenization (MIL-HS)</div>
+    <div class="homo-controls">
+      <label>grid <select id="homoGrid" style="width:70px"><option value="32">32&#179;</option><option value="48" selected>48&#179;</option><option value="64">64&#179;</option></select></label>
+      <label>E_s (GPa) <input type="number" id="homoEs" value="100" min="1" max="1000" step="10"></label>
+      <label>&#957; <input type="number" id="homoNu" value="0.3" min="0" max="0.49" step="0.01"></label>
+      <button id="runHomoBtn" onclick="onRunHomogenization()">Run homogenization</button>
+    </div>
+    <div id="homoStatus" style="font-size:11px;color:#555;margin-bottom:7px;min-height:15px"></div>
+    <div id="homoResults" style="display:none;margin-bottom:8px">
+      <div id="homoMetrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <div style="background:#0e0e1a;border:0.5px solid #2a2a3a;border-radius:8px;padding:7px 8px">
+          <div style="font-size:10px;color:#555;margin-bottom:5px">directional stiffness</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="font-size:11px;color:#555">A =</div>
+            <div id="zener-val" style="font-size:15px;font-weight:500;color:#888">&#8212;</div>
+            <div id="zener-label" style="font-size:10px;color:#555;flex:1;text-align:right">&#8212;</div>
+          </div>
+          <div style="position:relative;height:5px;background:#1a1a2a;border-radius:3px;margin-bottom:3px">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:3px;background:linear-gradient(90deg,#e879f9 0%,#555 40%,#555 60%,#22d3ee 100%);opacity:0.4"></div>
+            <div style="position:absolute;left:40%;top:-1px;width:1px;height:7px;background:#555;opacity:0.8"></div>
+            <div id="zener-marker" style="position:absolute;top:-2px;width:2px;height:9px;background:#e0e0ff;border-radius:1px;left:40%;transition:left 0.4s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:#555"><span>axial</span><span>A=1</span><span>diagonal</span></div>
+        </div>
+        <div style="background:#0e0e1a;border:0.5px solid #2a2a3a;border-radius:8px;padding:6px">
+          <div style="font-size:10px;color:#555;margin-bottom:4px">stiffness ellipsoid</div>
+          <div id="ellcv-wrap" style="position:relative;width:100%;padding-bottom:100%">
+            <canvas id="ellcv" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:4px;display:block"></canvas>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#444;line-height:1.5">&#9888; Statistical homogeneity assumed. Higher N waves and frequency improve convergence.</div>
+    </div>
+    <button id="exportBtn" onclick="onExportJSON()">Export JSON</button>
+  </div>
+</div>
+<script>
+var currentViewMode='section',currentSliceAxis='z',currentResolution=128,currentGrid=null;
+var topoMode='sheet',dirMode='single',debounceTimer=null,lastHomogResult=null;
+var IND_READY='#22d3ee',IND_WORKING='#f59e0b';
+
+function setNoiseStatus(w){var d=document.getElementById('dotNoise'),l=document.getElementById('labelNoise');d.style.background=w?IND_WORKING:IND_READY;l.style.color=w?IND_WORKING:IND_READY;l.textContent=w?'computing':'ready';}
+function setShaderStatus(w){var d=document.getElementById('dotShader'),l=document.getElementById('labelShader');d.style.background=w?IND_WORKING:IND_READY;l.style.color=w?IND_WORKING:IND_READY;l.textContent=w?'compiling':'ready';}
+function showIndicators(show){document.getElementById('indicators').style.display=show?'flex':'none';document.getElementById('status').style.display=show?'none':'block';}
+
+function mulberry32(seed){var s=seed|0;return function(){s=(s^(s<<13))>>>0;s=(s^(s>>17))>>>0;s=(s^(s<<5))>>>0;return s/4294967296;};}
+
+function sampleVMF(rng,kappa){
+  if(kappa<0.05){var z=2*rng()-1,phi=2*Math.PI*rng(),sr=Math.sqrt(Math.max(0,1-z*z));return[sr*Math.cos(phi),sr*Math.sin(phi),z];}
+  var w,iter=0;
+  do{var xi=rng();w=1+Math.log(Math.max(xi+(1-xi)*Math.exp(-2*kappa),1e-30))/kappa;iter++;}while((w<-1||w>1)&&iter<2000);
+  if(w<-1)w=-1;if(w>1)w=1;
+  var phi=2*Math.PI*rng(),sr=Math.sqrt(Math.max(0,1-w*w));
+  return[sr*Math.cos(phi),sr*Math.sin(phi),w];
+}
+
+function rotateTo(v,mux,muy,muz){
+  if(Math.abs(muz+1)<1e-6)return[-v[0],-v[1],-v[2]];
+  if(Math.abs(muz-1)<1e-6)return v.slice();
+  var ax=-muy,ay=mux,al=Math.sqrt(ax*ax+ay*ay);ax/=al;ay/=al;
+  var angle=Math.acos(Math.min(Math.max(muz,-1),1)),c=Math.cos(angle),s=Math.sin(angle),t=1-c;
+  var vx=v[0],vy=v[1],vz=v[2];
+  return[(t*ax*ax+c)*vx+(t*ax*ay)*vy+(s*ay)*vz,
+         (t*ax*ay)*vx+(t*ay*ay+c)*vy+(-s*ax)*vz,
+         (-s*ay)*vx+(s*ax)*vy+c*vz];
+}
+
+// ── Spinodoid: VMF-sampled directions, uniform magnitude ─────────────────
+function buildSpinodoidWaves(params){
+  var rng=mulberry32(params.rngSeed),N=params.nWaves,freq=params.frequency,kappa=params.kappa,mode=params.dirMode;
+  var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;
+  var mux=Math.sin(tRad)*Math.cos(pRad),muy=Math.sin(tRad)*Math.sin(pRad),muz=Math.cos(tRad);
+  var axes=[[1,0,0],[0,1,0],[0,0,1]],weights=[params.wX,params.wY,params.wZ];
+  var totalW=Math.max(weights[0]+weights[1]+weights[2],1e-6);
+  var waves=[];
+  for(var i=0;i<N;i++){
+    var dir;
+    if(mode==='iso'){dir=sampleVMF(rng,0);}
+    else if(mode==='single'){dir=rotateTo(sampleVMF(rng,kappa),mux,muy,muz);}
+    else{
+      var r=rng()*totalW,cum=0,chosen=0;
+      for(var a=0;a<3;a++){cum+=weights[a];if(r<=cum){chosen=a;break;}}
+      dir=rotateTo(sampleVMF(rng,kappa),axes[chosen][0],axes[chosen][1],axes[chosen][2]);
+    }
+    var mag=2*Math.PI*freq*(0.85+0.3*rng()),phase=2*Math.PI*rng();
+    waves.push({kx:dir[0]*mag,ky:dir[1]*mag,kz:dir[2]*mag,phase:phase});
+  }
+  return waves;
+}
+
+// ── GRF: uniform directions, Gaussian spectral envelope on magnitude ──────
+// k0 = 2*pi*freq controls the preferred spatial frequency (features per unit).
+// sigma as fraction of k0 controls bandwidth: 0.1 = near-periodic, 0.8 = broad.
+// Directional anisotropy: in single/ortho mode, k0 is scaled per-axis so
+// features are elongated along the principal direction.
+function buildGRFWaves(params){
+  var rng=mulberry32(params.rngSeed),N=params.nWaves,freq=params.frequency,mode=params.dirMode;
+  var sigmafrac=params.grfSigma||0.45; // sigma as fraction of k0
+  var k0base=2*Math.PI*freq; // base wavenumber — features per unit domain
+  var waves=[];
+
+  var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;
+  var mux=Math.sin(tRad)*Math.cos(pRad),muy=Math.sin(tRad)*Math.sin(pRad),muz=Math.cos(tRad);
+
+  function randn(){
+    var u=Math.max(rng(),1e-10),v=rng();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  for(var i=0;i<N;i++){
+    // Uniform direction on sphere
+    var dir=sampleVMF(rng,0);
+
+    // k0 for this wave — scale by directional anisotropy
+    var k0;
+    if(mode==='ortho'){
+      var wx=params.wX,wy=params.wY,wz=params.wZ;
+      var totalW=Math.max(wx+wy+wz,1e-6);
+      wx/=totalW;wy/=totalW;wz/=totalW;
+      // Project direction onto axes: high-weight axis gets lower k (larger cells)
+      var maxW=Math.max(wx,wy,wz);
+      var kScale=1.0/(Math.max(wx*dir[0]*dir[0]+wy*dir[1]*dir[1]+wz*dir[2]*dir[2],0.05)/maxW);
+      kScale=Math.min(Math.max(kScale,0.3),3.0);
+      k0=k0base*kScale;
+    } else if(mode==='single'){
+      // Aligned direction gets lower k (elongated cells); perpendicular gets higher k
+      var alignment=Math.abs(dir[0]*mux+dir[1]*muy+dir[2]*muz);
+      k0=k0base*(1.5-alignment); // ranges 0.5x (aligned) to 1.5x (perpendicular)
+    } else {
+      k0=k0base;
+    }
+
+    // Sample magnitude from Gaussian(k0, sigma*k0), rejecting negatives
+    var sigma=sigmafrac*k0;
+    var mag,tries=0;
+    do{ mag=k0+randn()*sigma; tries++; }while(mag<=0&&tries<30);
+    if(mag<=0)mag=k0*0.1;
+
+    var phase=2*Math.PI*rng();
+    waves.push({kx:dir[0]*mag,ky:dir[1]*mag,kz:dir[2]*mag,phase:phase});
+  }
+  return waves;
+}
+
+// ── Dispatcher ────────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════════════
+// HYPERUNIFORM KERNEL FIELD
+// ═══════════════════════════════════════════════════════════════════════
+
+function jitteredGrid3D(N, rng) {
+  // Stratified jittered grid — guaranteed uniform coverage, no corner bias.
+  // cells^3 >= N cells, one point per cell jittered within ±45% of cell size.
+  // Hyperuniform by construction: no clustering, no empty regions.
+  var cells=Math.ceil(Math.pow(N,1/3)),cellSize=1.0/cells,pts=[];
+  for(var ix=0;ix<cells;ix++)for(var iy=0;iy<cells;iy++)for(var iz=0;iz<cells;iz++){
+    var px=(ix+0.5+(rng()-0.5)*0.9)*cellSize;
+    var py=(iy+0.5+(rng()-0.5)*0.9)*cellSize;
+    var pz=(iz+0.5+(rng()-0.5)*0.9)*cellSize;
+    pts.push([Math.max(0.01,Math.min(0.99,px)),Math.max(0.01,Math.min(0.99,py)),Math.max(0.01,Math.min(0.99,pz))]);
+  }
+  // Fisher-Yates shuffle to remove grid ordering from orientation sampling
+  for(var i=pts.length-1;i>0;i--){var j=Math.floor(rng()*(i+1));var tmp=pts[i];pts[i]=pts[j];pts[j]=tmp;}
+  return pts.slice(0,N);
+}
+
+function buildHUKernels(params){
+  var rng=mulberry32(params.rngSeed),N=params.huN||80,aspect=params.huAspect||4.0,bw=params.huWidth||0.04;
+  var a=bw*aspect*0.5,b=bw*0.5;
+  var kappa=params.kappa,mode=params.dirMode;
+  var pts=jitteredGrid3D(N,rng);
+  var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;
+  var mux=Math.sin(tRad)*Math.cos(pRad),muy=Math.sin(tRad)*Math.sin(pRad),muz=Math.cos(tRad);
+  var axes=[[1,0,0],[0,1,0],[0,0,1]],weights=[params.wX,params.wY,params.wZ],totalW=Math.max(weights[0]+weights[1]+weights[2],1e-6);
+  function cross3(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+  function norm3(v){var l=Math.sqrt(v[0]**2+v[1]**2+v[2]**2)||1;return[v[0]/l,v[1]/l,v[2]/l];}
+  var kernels=[];
+  for(var i=0;i<N;i++){
+    var t;
+    if(mode==='iso') t=sampleVMF(rng,0);
+    else if(mode==='single') t=rotateTo(sampleVMF(rng,kappa),mux,muy,muz);
+    else{var r=rng()*totalW,cum=0,chosen=0;for(var ax=0;ax<3;ax++){cum+=weights[ax];if(r<=cum){chosen=ax;break;}}t=rotateTo(sampleVMF(rng,kappa),axes[chosen][0],axes[chosen][1],axes[chosen][2]);}
+    var arb=(Math.abs(t[0])<0.9)?[1,0,0]:[0,1,0];
+    var n1=norm3(cross3(t,arb)),n2=norm3(cross3(t,n1));
+    var TWO_PI=2.0*Math.PI;
+    kernels.push({
+      px:pts[i][0]*TWO_PI-Math.PI, py:pts[i][1]*TWO_PI-Math.PI, pz:pts[i][2]*TWO_PI-Math.PI,
+      tx:t[0],ty:t[1],tz:t[2],
+      n1x:n1[0],n1y:n1[1],n1z:n1[2],
+      n2x:n2[0],n2y:n2[1],n2z:n2[2],
+      a:a*TWO_PI, b:b*TWO_PI
+    });
+  }
+  return kernels;
+}
+
+function evalHUField(kernels,x,y,z){
+  // Remap [0,1] sample coords to [-pi,pi] to match kernel domain
+  x=x*2*Math.PI-Math.PI; y=y*2*Math.PI-Math.PI; z=z*2*Math.PI-Math.PI;
+  var s=0;
+  for(var i=0;i<kernels.length;i++){
+    var k=kernels[i],dx=x-k.px,dy=y-k.py,dz=z-k.pz;
+    var dt=dx*k.tx+dy*k.ty+dz*k.tz;
+    var dn1=dx*k.n1x+dy*k.n1y+dz*k.n1z;
+    var dn2=dx*k.n2x+dy*k.n2y+dz*k.n2z;
+    s+=Math.exp(-(dt*dt)/(k.a*k.a)-(dn1*dn1+dn2*dn2)/(k.b*k.b));
+  }
+  // No sqrt(N) division — raw sum in [0,~1] per evaluation point.
+  // Subtract 0.3 so ~30% VF is solid at default settings.
+  // isoLevel slider shifts this threshold (negative = more solid, positive = less).
+  return s - 0.3;
+}
+
+function buildWaves(params){
+  if(params.fieldType==='hyperuniform') return null; // HU uses kernel path
+  return params.fieldType==='gaussian'?buildGRFWaves(params):buildSpinodoidWaves(params);
+}
+
+function evalField(waves,x,y,z,kernels){if(kernels)return evalHUField(kernels,x,y,z);var s=0,N=waves.length;for(var i=0;i<N;i++)s+=Math.cos(waves[i].kx*x+waves[i].ky*y+waves[i].kz*z+waves[i].phase);return s/Math.sqrt(N);}
+
+function SpinodoidGridGenerator(){}
+SpinodoidGridGenerator.prototype.generate=function(params){
+  var res=params.resolution,size=res*res*res,waves=buildWaves(params);
+  var kernels=(params.fieldType==='hyperuniform')?buildHUKernels(params):null;
+  var noiseValues=new Float32Array(size),minVal=Infinity,maxVal=-Infinity;
+  for(var z=0;z<res;z++)for(var y=0;y<res;y++)for(var x=0;x<res;x++){
+    var idx=x+y*res+z*res*res,v=evalField(waves,x/res,y/res,z/res,kernels);
+    noiseValues[idx]=v;if(v<minVal)minVal=v;if(v>maxVal)maxVal=v;
+  }
+  var smooth=params.smoothing||0;
+  if(smooth>0.001){
+    var radius=Math.max(1,Math.round(smooth*Math.max(3,res/16))),tmp=new Float32Array(size);
+    for(var z=0;z<res;z++)for(var y=0;y<res;y++)for(var x=0;x<res;x++){var s=0,c=0;for(var k=-radius;k<=radius;k++){var xx=Math.min(Math.max(x+k,0),res-1);s+=noiseValues[xx+y*res+z*res*res];c++;}tmp[x+y*res+z*res*res]=s/c;}
+    for(var z=0;z<res;z++)for(var x=0;x<res;x++)for(var y=0;y<res;y++){var s=0,c=0;for(var k=-radius;k<=radius;k++){var yy=Math.min(Math.max(y+k,0),res-1);s+=tmp[x+yy*res+z*res*res];c++;}noiseValues[x+y*res+z*res*res]=s/c;}
+    for(var y=0;y<res;y++)for(var x=0;x<res;x++)for(var z=0;z<res;z++){var s=0,c=0;for(var k=-radius;k<=radius;k++){var zz=Math.min(Math.max(z+k,0),res-1);s+=noiseValues[x+y*res+zz*res*res];c++;}tmp[x+y*res+z*res*res]=s/c;}
+    noiseValues=tmp;minVal=Infinity;maxVal=-Infinity;for(var i=0;i<size;i++){if(noiseValues[i]<minVal)minVal=noiseValues[i];if(noiseValues[i]>maxVal)maxVal=noiseValues[i];}
+  }
+  var mid=(minVal+maxVal)*0.5,halfRange=Math.max((maxVal-minVal)*0.5,0.001),sign=params.invert?-1:1;
+  var grid=new Float32Array(size);
+  for(var i=0;i<size;i++){
+    var norm=(noiseValues[i]-mid)/halfRange;
+    var topo=params.topoMode;
+    if(topo==='half')      grid[i]=-(norm-params.isoLevel);
+    else if(topo==='solid') grid[i]=-1*(Math.abs(norm-params.isoLevel)-params.thickness);
+    else                    grid[i]=(Math.abs(norm-params.isoLevel)-params.thickness);
+  }
+  return grid;
+};
+
+function SectionViewer(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.grid=null;this.resolution=64;this.sliceZ=0.5;this.axis='z';}
+SectionViewer.prototype.updateGrid=function(grid,res){this.grid=grid;this.resolution=res;this.render();};
+SectionViewer.prototype.setSlice=function(z){this.sliceZ=z;this.render();};
+SectionViewer.prototype.setAxis=function(axis){this.axis=axis;this.render();};
+SectionViewer.prototype.render=function(){
+  if(!this.grid)return;
+  var w=this.canvas.clientWidth,h=this.canvas.clientHeight;
+  this.canvas.width=w;this.canvas.height=h;
+  var res=this.resolution,sliceIdx=Math.floor(this.sliceZ*(res-1)),axis=this.axis,ctx=this.ctx;
+  function getVal(grid,px,py,si,res){var gx,gy,gz;if(axis==='z'){gx=px;gy=res-1-py;gz=si;}else if(axis==='y'){gx=px;gy=si;gz=res-1-py;}else{gx=si;gy=res-1-py;gz=px;}return grid[gx+gy*res+gz*res*res];}
+  var imageData=ctx.createImageData(res,res);
+  for(var py=0;py<res;py++)for(var px=0;px<res;px++){
+    var value=getVal(this.grid,px,py,sliceIdx,res),r,g,b;
+    if(value<0){var t=Math.min(Math.abs(value)*3,1);r=Math.floor(122+t*100);g=Math.floor(78+t*64);b=0;}
+    else{var t=Math.min(value*3,1);r=Math.floor(6+t*20);g=Math.floor(8+t*18);b=Math.floor(15+t*31);}
+    var pi=(px+py*res)*4;imageData.data[pi]=r;imageData.data[pi+1]=g;imageData.data[pi+2]=b;imageData.data[pi+3]=255;
+  }
+  var tc=document.createElement('canvas');tc.width=res;tc.height=res;tc.getContext('2d').putImageData(imageData,0,0);
+  ctx.fillStyle='#06080f';ctx.fillRect(0,0,w,h);
+  var sz=Math.min(w,h)*0.92,ox=(w-sz)/2,oy=(h-sz)/2;
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(tc,ox,oy,sz,sz);
+  var cellW=sz/res,cellH=sz/res;
+  ctx.strokeStyle='#22d3ee';ctx.lineWidth=1.0;
+  for(var py=0;py<res-1;py++)for(var px=0;px<res-1;px++){
+    var v00=getVal(this.grid,px,py,sliceIdx,res),v10=getVal(this.grid,px+1,py,sliceIdx,res),v01=getVal(this.grid,px,py+1,sliceIdx,res);
+    if((v00<0)!==(v10<0)||(v00<0)!==(v01<0)){ctx.strokeRect(ox+px*cellW,oy+py*cellH,cellW,cellH);}
+  }
+  ctx.fillStyle='rgba(34,211,238,0.55)';ctx.font='10px system-ui';
+  ctx.fillText(axis.toUpperCase()+'='+this.sliceZ.toFixed(2),ox+6,oy+14);
+};
+
+function Raymarcher(canvas){
+  if(!canvas){console.error('Raymarcher: canvas is null');return;}
+  this.canvas=canvas;
+  var vp=document.getElementById('cw');
+  canvas.width=Math.max(vp?vp.clientWidth:window.innerWidth||300,1);
+  canvas.height=Math.max(vp?vp.clientHeight:Math.round(window.innerHeight*0.5)||300,1);
+  this.gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl');
+  if(!this.gl){document.getElementById('status').textContent='WebGL not supported';return;}
+  var gl=this.gl;
+  this._khr=gl.getExtension('KHR_parallel_shader_compile')||null;
+  this._pendingProg=null;this._pendingParams=null;this._compiling=false;
+  this.prog=null;this.quadBuf=null;
+  this.uRes=null;this.uRot=null;this.uZoom=null;this.uThick=null;this.uIso=null;this.uInvertSign=null;this.uTopoMode=null;
+  this.camZoom=16;this.autoRot=false;this.running=false;this._loopRunning=false;
+  this._dirty=true;this.currentParams=null;this._rebuildPending=false;
+  this.rotMat=this._mat3Mul(this._rotAA(0,1,0,0.7),this._rotAA(1,0,0,0.5));
+  this.quadBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  this._setupInteraction();
+}
+Raymarcher.prototype._rotAA=function(ax,ay,az,angle){var c=Math.cos(angle),s=Math.sin(angle),t2=1-c;var l=Math.sqrt(ax*ax+ay*ay+az*az)||1;ax/=l;ay/=l;az/=l;return[t2*ax*ax+c,t2*ax*ay+s*az,t2*ax*az-s*ay,t2*ax*ay-s*az,t2*ay*ay+c,t2*ay*az+s*ax,t2*ax*az+s*ay,t2*ay*az-s*ax,t2*az*az+c];};
+Raymarcher.prototype._mat3Mul=function(A,B){var r=new Array(9);for(var c=0;c<3;c++)for(var row=0;row<3;row++)r[c*3+row]=A[0*3+row]*B[c*3+0]+A[1*3+row]*B[c*3+1]+A[2*3+row]*B[c*3+2];return r;};
+Raymarcher.prototype._orthonorm=function(m){function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}function scl(a,s){return[a[0]*s,a[1]*s,a[2]*s];}function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}function nrm(a){var l=Math.sqrt(dot(a,a))||1;return[a[0]/l,a[1]/l,a[2]/l];}var x=[m[0],m[1],m[2]],y=[m[3],m[4],m[5]],z=[m[6],m[7],m[8]];x=nrm(x);y=nrm(sub(y,scl(x,dot(y,x))));z=nrm(sub(sub(z,scl(x,dot(z,x))),scl(y,dot(z,y))));return[x[0],x[1],x[2],y[0],y[1],y[2],z[0],z[1],z[2]];};
+Raymarcher.prototype._applyDelta=function(dx,dy){if(Math.abs(dx)>0.001){this.rotMat=this._mat3Mul(this._rotAA(0,1,0,dx*0.007),this.rotMat);this._dirty=true;}if(Math.abs(dy)>0.001){var rx=this.rotMat[0],ry=this.rotMat[1],rz=this.rotMat[2];this.rotMat=this._mat3Mul(this._rotAA(rx,ry,rz,-dy*0.007),this.rotMat);this._dirty=true;}};
+Raymarcher.prototype._setupInteraction=function(){var self=this,drag=false,lx=0,ly=0;this.canvas.onmousedown=function(e){drag=true;lx=e.clientX;ly=e.clientY;self.autoRot=false;};window.addEventListener('mouseup',function(){drag=false;});window.addEventListener('mousemove',function(e){if(drag){self._applyDelta(e.clientX-lx,e.clientY-ly);lx=e.clientX;ly=e.clientY;}});this.canvas.addEventListener('touchstart',function(e){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;self.autoRot=false;e.preventDefault();},{passive:false});window.addEventListener('touchend',function(){drag=false;});window.addEventListener('touchmove',function(e){if(drag){self._applyDelta(e.touches[0].clientX-lx,e.touches[0].clientY-ly);lx=e.touches[0].clientX;ly=e.touches[0].clientY;e.preventDefault();}},{passive:false});this.canvas.addEventListener('wheel',function(e){self.camZoom=Math.max(6,Math.min(40,self.camZoom+e.deltaY*0.02));self._dirty=true;e.preventDefault();},{passive:false});};
+Raymarcher.prototype._mkShader=function(type,src){
+  var gl=this.gl;var s=gl.createShader(type);if(!s)return null;
+  gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+    var log=gl.getShaderInfoLog(s);
+    console.error('Shader compile error:',log);
+    // Find the offending line
+    var m=log.match(/ERROR: 0:(\d+)/);
+    if(m){var ln=parseInt(m[1]);var lines=src.split('\n');console.error('Line '+ln+':',lines[ln-1]);}
+    document.getElementById('status').textContent='Shader error — see console';
+    return null;
+  }
+  return s;
+};
+
+
+Raymarcher.prototype._buildFragHU=function(params){
+  var kernels=buildHUKernels(params),N=kernels.length;
+  var invSqrtN=(1.0/Math.sqrt(N)).toFixed(6);
+
+  // Fully unroll huField — no arrays, no loops, no init function.
+  // WebGL1/GLSL ES 1.0 does not support mutable global arrays or
+  // runtime array indexing in the way needed by the initKernels pattern.
+  // Each kernel is a single inlined expression with literal float values.
+  var kernelLines=[];
+  function gf(v){var s=parseFloat(v.toFixed(5));return s<0?'('+s.toFixed(5)+')':s.toFixed(5);}
+  for(var i=0;i<N;i++){
+    var k=kernels[i];
+    var px=gf(k.px),py=gf(k.py),pz=gf(k.pz);
+    var tx=gf(k.tx),ty=gf(k.ty),tz=gf(k.tz);
+    var n1x=gf(k.n1x),n1y=gf(k.n1y),n1z=gf(k.n1z);
+    var n2x=gf(k.n2x),n2y=gf(k.n2y),n2z=gf(k.n2z);
+    var a2=(k.a*k.a).toFixed(6),b2=(k.b*k.b).toFixed(6);
+    kernelLines.push(
+      '{float dx=p.x-'+px+',dy=p.y-'+py+',dz=p.z-'+pz+';'+
+      'float dt=dx*'+tx+'+dy*'+ty+'+dz*'+tz+';'+
+      'float dn1=dx*'+n1x+'+dy*'+n1y+'+dz*'+n1z+';'+
+      'float dn2=dx*'+n2x+'+dy*'+n2y+'+dz*'+n2z+';'+
+      's+=exp(-(dt*dt/'+a2+'+(dn1*dn1+dn2*dn2)/'+b2+'));}'+
+      ''
+    );
+  }
+  return [
+    'precision highp float;',
+    'uniform vec2 res;uniform mat3 rot;uniform float zoom;',
+    'uniform float thickness;uniform float isoLevel;uniform float uTopoMode;',
+    'float huField(vec3 p){float s=0.0;',
+    kernelLines.join('\n'),
+    'return s-0.30000;}',
+    'float implicit(vec3 p){',
+    '  float raw=huField(p);',
+    '  // HU field: raw>0 near kernels, raw<0 in void (default offset 0.3)',
+    '  // isoLevel shifts the solid/void boundary (negative=denser, positive=sparser)',
+    '  float adjusted=raw-isoLevel;',
+    '  if(uTopoMode<0.5) return abs(adjusted)-thickness;',
+    '  if(uTopoMode<1.5) return -adjusted;',
+    '  return -(abs(adjusted)-thickness);',
+    '}',
+    'vec3 boxNormal(vec3 pos,float H){vec3 ap=abs(pos)/H;if(ap.x>ap.y&&ap.x>ap.z)return vec3(sign(pos.x),0.0,0.0);if(ap.y>ap.z)return vec3(0.0,sign(pos.y),0.0);return vec3(0.0,0.0,sign(pos.z));}',
+    'vec3 nrmField(vec3 p,float e){return normalize(vec3(implicit(p+vec3(e,0,0))-implicit(p-vec3(e,0,0)),implicit(p+vec3(0,e,0))-implicit(p-vec3(0,e,0)),implicit(p+vec3(0,0,e))-implicit(p-vec3(0,0,e))));}',
+    'vec3 palette(float t){vec3 a=vec3(0.55,0.57,0.42),b=vec3(0.43,0.42,0.30),c=vec3(1.0,1.0,1.0),d=vec3(0.02,0.0,0.05);return clamp(a+b*cos(6.28318*(c*t+d)),0.0,1.0);}',
+    'void main(){',
+
+    '  vec2 uv=(gl_FragCoord.xy-res*0.5)/min(res.x,res.y);',
+    '  vec3 ro=rot*vec3(0.0,0.0,zoom);vec3 rd=normalize(rot*vec3(uv.x,uv.y,-1.6));',
+    '  float H=3.141593;',
+    '  float r=clamp(length(uv)*1.1,0.0,1.0);',
+    '  vec3 bgCol=mix(vec3(0.07,0.07,0.07),vec3(0.03,0.03,0.03),r*r);',
+    '  // HU field step sizing — based on kernel half-width in world space',
+    '  // b_world = huWidth * pi (after [0,1]->[-pi,pi] remap)',
+    '  float bWorld='+(params.huWidth*Math.PI).toFixed(5)+';',
+    '  float stepSize=bWorld*0.25;',
+    '  float thresh=-0.02;',
+    '  float nrmE=bWorld*0.15;',
+    '  vec3 iv=vec3(1.0)/rd;',
+    '  vec3 tb=(-vec3(H,H,H)-ro)*iv,tt=(vec3(H,H,H)-ro)*iv;',
+    '  vec3 tmi=min(tb,tt),tma=max(tb,tt);',
+    '  float tEn=max(max(tmi.x,tmi.y),tmi.z);float tEx=min(min(tma.x,tma.y),tma.z);',
+    '  if(tEn>tEx||tEx<0.0){gl_FragColor=vec4(bgCol,1.0);return;}',
+    '  float t=max(tEn,0.001);bool hit=false;',
+    '  for(int i=0;i<280;i++){if(t>tEx)break;vec3 p=ro+rd*t;float d=implicit(p);if(d<thresh){hit=true;break;}t+=stepSize;}',
+    '  vec3 pos;vec3 n;',
+    '  if(hit){pos=ro+rd*t;n=nrmField(pos,nrmE);if(dot(n,-rd)<0.0)n=-n;}',
+    '  else{gl_FragColor=vec4(bgCol,1.0);return;}',
+    '  float dy=dot(n,vec3(0.0,1.0,0.0)),dz=dot(n,vec3(0.0,0.0,1.0));',
+    '  float hue=dy*dy*0.33+dz*dz*0.67;',
+    '  vec3 iridBase=palette(hue);vec3 iridShift=palette(hue+0.5);',
+    '  vec3 l1=normalize(vec3(1.0,1.8,2.0)),l2=normalize(vec3(-0.8,-0.3,0.6));',
+    '  float l3fill=max(dot(n,normalize(vec3(-0.5,-1.0,-1.5))),0.0)*0.3;',
+    '  float diff=0.35+max(dot(n,l1),0.0)*0.7+max(dot(n,l2),0.0)*0.25+l3fill;',
+    '  float spec1=pow(max(dot(reflect(-l1,n),-rd),0.0),120.0)*0.7;',
+    '  float spec2=pow(max(dot(reflect(-l1,n),-rd),0.0),20.0)*0.2;',
+    '  float rim=pow(1.0-max(dot(n,-rd),0.0),2.5)*0.8;',
+    '  vec3 green=vec3(0.784,0.961,0.259);',
+    '  vec3 col=iridBase*diff+vec3(1.0)*spec1+green*spec2*0.6+green*rim*0.45;',
+    '  col=mix(bgCol,col,exp(-t*0.010));',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}',
+  ].join('\n');
+};
+
+Raymarcher.prototype._buildFrag=function(params){
+  // ── Hyperuniform kernel path ──────────────────────────────────────────
+  if(params.fieldType==='hyperuniform') return this._buildFragHU(params);
+  var waves=buildWaves(params),N=waves.length;
+  var kxArr=waves.map(function(w){return w.kx.toFixed(5);}).join(',');
+  var kyArr=waves.map(function(w){return w.ky.toFixed(5);}).join(',');
+  var kzArr=waves.map(function(w){return w.kz.toFixed(5);}).join(',');
+  var phArr=waves.map(function(w){return w.phase.toFixed(5);}).join(',');
+  var maxK=0;for(var i=0;i<waves.length;i++){var m=Math.sqrt(waves[i].kx*waves[i].kx+waves[i].ky*waves[i].ky+waves[i].kz*waves[i].kz);if(m>maxK)maxK=m;}
+  var lipschitz=Math.max(maxK,0.5).toFixed(4);
+  return [
+    'precision highp float;',
+    'uniform vec2 res;uniform mat3 rot;uniform float zoom;',
+    'uniform float thickness;uniform float isoLevel;uniform float invertSign;',
+    'const int NW='+N+';',
+    'float spinodoid(vec3 p){',
+    '  float kx[NW];float ky[NW];float kz[NW];float ph[NW];',
+    // init arrays inline — WebGL1 cannot use array constructors
+    waves.map(function(w,i){return '  kx['+i+']='+w.kx.toFixed(5)+';ky['+i+']='+w.ky.toFixed(5)+';kz['+i+']='+w.kz.toFixed(5)+';ph['+i+']='+w.phase.toFixed(5)+';';}).join('\n'),
+    '  float s=0.0;',
+    '  for(int i=0;i<NW;i++) s+=cos(kx[i]*p.x+ky[i]*p.y+kz[i]*p.z+ph[i]);',
+    '  return s/sqrt(float(NW));',
+    '}',
+    'uniform float uTopoMode;', // 0=sheet 1=half 2=solid
+    'float implicit(vec3 p){',
+    '  float raw=spinodoid(p);',
+    '  if(uTopoMode<0.5) return abs(raw-isoLevel)-thickness;',       // sheet
+    '  if(uTopoMode<1.5) return -(raw-isoLevel);',                   // half-solid
+    '  return -(abs(raw-isoLevel)-thickness);',                      // solid
+    '}',
+    'vec3 boxNormal(vec3 pos,float H){vec3 ap=abs(pos)/H;if(ap.x>ap.y&&ap.x>ap.z)return vec3(sign(pos.x),0.0,0.0);if(ap.y>ap.z)return vec3(0.0,sign(pos.y),0.0);return vec3(0.0,0.0,sign(pos.z));}',
+    'vec3 nrmField(vec3 p,float e){return normalize(vec3(implicit(p+vec3(e,0,0))-implicit(p-vec3(e,0,0)),implicit(p+vec3(0,e,0))-implicit(p-vec3(0,e,0)),implicit(p+vec3(0,0,e))-implicit(p-vec3(0,0,e))));}',
+    'vec3 palette(float t){vec3 a=vec3(0.55,0.57,0.42),b=vec3(0.43,0.42,0.30),c=vec3(1.0,1.0,1.0),d=vec3(0.02,0.0,0.05);return clamp(a+b*cos(6.28318*(c*t+d)),0.0,1.0);}',
+    'void main(){',
+    '  vec2 uv=(gl_FragCoord.xy-res*0.5)/min(res.x,res.y);',
+    '  vec3 ro=rot*vec3(0.0,0.0,zoom);vec3 rd=normalize(rot*vec3(uv.x,uv.y,-1.6));',
+    '  float H=3.141593;',
+    '  float r=clamp(length(uv)*1.1,0.0,1.0);',
+    '  vec3 bgCol=mix(vec3(0.07,0.07,0.07),vec3(0.03,0.03,0.03),r*r);',
+    '  float lipschitz='+lipschitz+';',
+    '  float featureSize=thickness/lipschitz;',
+    '  float thresh=featureSize*0.008;',
+    '  float maxStep=min(featureSize*0.5,0.5);',
+    '  float nrmE=max(featureSize*0.06,0.004);',
+    '  vec3 iv=vec3(1.0)/rd;',
+    '  vec3 tb=(-vec3(H,H,H)-ro)*iv,tt=(vec3(H,H,H)-ro)*iv;',
+    '  vec3 tmi=min(tb,tt),tma=max(tb,tt);',
+    '  float tEn=max(max(tmi.x,tmi.y),tmi.z);float tEx=min(min(tma.x,tma.y),tma.z);',
+    '  if(tEn>tEx||tEx<0.0){gl_FragColor=vec4(bgCol,1.0);return;}',
+    '  float t=max(tEn,0.001);bool hit=false;bool nearCap=false;',
+    '  if(implicit(ro+rd*t)<0.0)nearCap=true;',
+    '  if(!nearCap){for(int i=0;i<192;i++){if(t>tEx)break;vec3 p=ro+rd*t;float d=implicit(p);if(d<thresh){hit=true;break;}t+=clamp(d/lipschitz*0.85,thresh*0.5,maxStep);}}',
+    '  vec3 pos;vec3 n;',
+    '  if(nearCap){pos=ro+rd*tEn;n=boxNormal(pos,H);if(dot(n,-rd)<0.0)n=-n;t=tEn;}',
+    '  else if(hit){pos=ro+rd*t;n=nrmField(pos,nrmE);if(dot(n,-rd)<0.0)n=-n;}',
+    '  else{if(implicit(ro+rd*tEx)<0.0){pos=ro+rd*tEx;n=boxNormal(pos,H);if(dot(n,-rd)<0.0)n=-n;t=tEx;}else{gl_FragColor=vec4(bgCol,1.0);return;}}',
+    '  float dy=dot(n,vec3(0.0,1.0,0.0)),dz=dot(n,vec3(0.0,0.0,1.0));',
+    '  float hue=dy*dy*0.33+dz*dz*0.67;',
+    '  vec3 iridBase=palette(hue);vec3 iridShift=palette(hue+0.5);',
+    '  vec3 l1=normalize(vec3(1.0,1.8,2.0)),l2=normalize(vec3(-0.8,-0.3,0.6));',
+    '  float l3fill=max(dot(n,normalize(vec3(-0.5,-1.0,-1.5))),0.0)*0.3;',
+    '  float diff=0.35+max(dot(n,l1),0.0)*0.7+max(dot(n,l2),0.0)*0.25+l3fill;',
+    '  float spec1=pow(max(dot(reflect(-l1,n),-rd),0.0),120.0)*0.7;',
+    '  float spec2=pow(max(dot(reflect(-l1,n),-rd),0.0),20.0)*0.2;',
+    '  float rim=pow(1.0-max(dot(n,-rd),0.0),2.5)*0.8;',
+    '  vec3 green=vec3(0.784,0.961,0.259);',
+    '  vec3 col=iridBase*diff+vec3(1.0)*spec1+green*spec2*0.6+green*rim*0.45;',
+    '  col=mix(bgCol,col,exp(-t*0.010));',
+    '  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}',
+  ].join('\n');
+};
+
+Raymarcher.prototype._submitShader=function(params){var gl=this.gl;var vs='attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}';var fs=this._buildFrag(params);var vs_=this._mkShader(gl.VERTEX_SHADER,vs);var fs_=this._mkShader(gl.FRAGMENT_SHADER,fs);if(!vs_||!fs_)return;var prg=gl.createProgram();gl.attachShader(prg,vs_);gl.attachShader(prg,fs_);gl.linkProgram(prg);gl.deleteShader(vs_);gl.deleteShader(fs_);if(this._pendingProg)gl.deleteProgram(this._pendingProg);this._pendingProg=prg;this._pendingParams=params;this._compiling=true;setShaderStatus(true);};
+Raymarcher.prototype._activateProgram=function(prg){var gl=this.gl;if(this.prog&&this.prog!==prg)gl.deleteProgram(this.prog);this.prog=prg;gl.useProgram(prg);gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);var loc=gl.getAttribLocation(prg,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);this.uRes=gl.getUniformLocation(prg,'res');this.uRot=gl.getUniformLocation(prg,'rot');this.uZoom=gl.getUniformLocation(prg,'zoom');this.uThick=gl.getUniformLocation(prg,'thickness');this.uIso=gl.getUniformLocation(prg,'isoLevel');this.uInvertSign=gl.getUniformLocation(prg,'invertSign');this.uTopoMode=gl.getUniformLocation(prg,'uTopoMode');};
+Raymarcher.prototype.setParams=function(params){if(!this.gl)return;var prev=this.currentParams;var needRebuild=!prev||(!this.prog&&!this._compiling)||params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.topoMode!==prev.topoMode;this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}this._dirty=true;if(!this._loopRunning)this._startLoop();};
+Raymarcher.prototype.render=function(){var gl=this.gl;if(!gl)return;if(this._compiling&&this._pendingProg){var ready=true;if(this._khr)ready=gl.getProgramParameter(this._pendingProg,this._khr.COMPLETION_STATUS_KHR);if(ready){if(gl.getProgramParameter(this._pendingProg,gl.LINK_STATUS)){this._activateProgram(this._pendingProg);setShaderStatus(false);}else{console.error('Shader link failed:',gl.getProgramInfoLog(this._pendingProg));gl.deleteProgram(this._pendingProg);setShaderStatus(false);document.getElementById('status').textContent='Shader error';}this._pendingProg=null;this._compiling=false;this._dirty=true;}}if(!this.prog)return;var cssW=this.canvas.clientWidth,cssH=this.canvas.clientHeight;if(cssW===0||cssH===0)return;var MAX_DIM=420,scale=Math.min(1.0,MAX_DIM/Math.max(cssW,cssH)),w=Math.round(cssW*scale),h=Math.round(cssH*scale);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}gl.viewport(0,0,w,h);gl.useProgram(this.prog);gl.uniform2f(this.uRes,w,h);gl.uniformMatrix3fv(this.uRot,false,new Float32Array(this.rotMat));gl.uniform1f(this.uZoom,this.camZoom);if(this.currentParams){var p=this.currentParams;gl.uniform1f(this.uThick,p.thickness);gl.uniform1f(this.uIso,p.isoLevel||0);gl.uniform1f(this.uInvertSign,p.invert?-1.0:1.0);gl.uniform1f(this.uTopoMode,p.topoMode==='half'?1.0:p.topoMode==='solid'?2.0:0.0);}gl.drawArrays(gl.TRIANGLE_STRIP,0,4);this._dirty=false;};
+Raymarcher.prototype._startLoop=function(){var self=this;self._loopRunning=true;var lastTs=0;function loop(ts){var dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;if(self.running){if(self.autoRot){self._applyDelta(dt*30,0);self._dirty=true;}if(self._dirty||self._compiling){self.rotMat=self._orthonorm(self.rotMat);self.render();}}requestAnimationFrame(loop);}requestAnimationFrame(loop);};
+
+// Stiffness ellipsoid (verbatim from noise tool)
+function smat3Mul(A,B){var r=new Array(9);for(var c=0;c<3;c++)for(var row=0;row<3;row++)r[c*3+row]=A[0*3+row]*B[c*3+0]+A[1*3+row]*B[c*3+1]+A[2*3+row]*B[c*3+2];return r;}
+function sRotAxisAngle(ax,ay,az,angle){var c=Math.cos(angle),s=Math.sin(angle),t2=1-c;var l=Math.sqrt(ax*ax+ay*ay+az*az)||1;ax/=l;ay/=l;az/=l;return[t2*ax*ax+c,t2*ax*ay+s*az,t2*ax*az-s*ay,t2*ax*ay-s*az,t2*ay*ay+c,t2*ay*az+s*ax,t2*ax*az+s*ay,t2*ay*az-s*ax,t2*az*az+c];}
+function sOrthonorm(m){function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}function scl(a,s){return[a[0]*s,a[1]*s,a[2]*s];}function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}function nrm(a){var l=Math.sqrt(dot(a,a))||1;return[a[0]/l,a[1]/l,a[2]/l];}var x=[m[0],m[1],m[2]],y=[m[3],m[4],m[5]],z=[m[6],m[7],m[8]];x=nrm(x);y=nrm(sub(y,scl(x,dot(y,x))));z=nrm(sub(sub(z,scl(x,dot(z,x))),scl(y,dot(z,y))));return[x[0],x[1],x[2],y[0],y[1],y[2],z[0],z[1],z[2]];}
+var sgl=null,sprog=null,squadBuf=null,suRes,suRot,suZoom,sRotMat=[1,0,0,0,1,0,0,0,1],sInitialized=false,sZoom=2.6;
+var SVERT='attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}';
+function buildStiffFrag(Ex,Ey,Ez,Gxy,nu){var E=(Ex+Ey+Ez)/3,S11=1/E,S12=-nu/E,S44=1/Gxy,d=(S11-S12)*(S11+2*S12),C11=(S11+S12)/d,C12=-S12/d,C44=1/S44,A=2*C44/(C11-C12),Gamma=2*S11-2*S12-S44,E100=1/S11,E111=Math.abs(S11-Gamma/3)>1e-9?1/(S11-Gamma/3):E100,Emax=Math.max(E100,E111,Ex,Ey,Ez)*1.08;var zv=document.getElementById('zener-val'),zm=document.getElementById('zener-marker'),zl=document.getElementById('zener-label');if(zv)zv.textContent=A.toFixed(3);if(zm){var Aclamp=Math.min(Math.max(A,0.3),2.5);zm.style.left=((Aclamp-0.3)/(2.5-0.3)*100).toFixed(1)+'%';}var Acol=A<0.8?'#e879f9':A<1.2?'#888':A<2.0?'#22d3ee':'#aaff00',Albl=A<0.7?'strongly axial':A<0.9?'axial dominant':A<1.1?'near-isotropic':A<1.5?'diagonal dominant':'strongly diagonal';if(zv)zv.style.color=Acol;if(zl){zl.textContent=Albl;zl.style.color=Acol;}function f(v){var s=v.toFixed(8);return s;}return'precision highp float;\nuniform vec2 res;uniform mat3 rot;uniform float zoom;\nfloat S11='+f(S11)+';float Gamma='+f(Gamma)+';float Emax='+f(Emax)+';\nfloat Edir(vec3 n){float w=n.x*n.x*n.y*n.y+n.y*n.y*n.z*n.z+n.z*n.z*n.x*n.x;return 1.0/max(abs(S11-(Gamma*0.5)*w),1e-6);}\nfloat implicit(vec3 P){float r=length(P);if(r<0.001)return -1.0;return r-Edir(P/r)/Emax;}\nvec3 nrm(vec3 P){float e=0.004;return normalize(vec3(implicit(P+vec3(e,0.0,0.0))-implicit(P-vec3(e,0.0,0.0)),implicit(P+vec3(0.0,e,0.0))-implicit(P-vec3(0.0,e,0.0)),implicit(P+vec3(0.0,0.0,e))-implicit(P-vec3(0.0,0.0,e))));}\nvec3 palette(float t){vec3 a=vec3(0.5,0.5,0.5),b=vec3(0.5,0.5,0.5),c=vec3(1.0,1.0,1.0),d=vec3(0.0,0.33,0.67);return a+b*cos(6.28318*(c*t+d));}\nvoid main(){vec2 uv=(gl_FragCoord.xy-res*0.5)/min(res.x,res.y);vec3 ro=rot*vec3(0.0,0.0,zoom);vec3 rd=normalize(rot*vec3(uv.x,uv.y,-1.6));float r=clamp(length(uv)*1.1,0.0,1.0);vec3 bgCol=mix(vec3(0.07,0.09,0.22),vec3(0.01,0.01,0.04),r*r);vec4 bg=vec4(bgCol,1.0);float bR=1.15;float b2=dot(ro,rd),c2=dot(ro,ro)-bR*bR,disc=b2*b2-c2;if(disc<0.0){gl_FragColor=bg;return;}float sq=sqrt(disc),tEn=max(-b2-sq,0.0),tEx=-b2+sq;if(tEx<0.0){gl_FragColor=bg;return;}float t=tEn,hit=-1.0,ss=0.018,prev=implicit(ro+rd*t);for(int i=0;i<280;i++){t+=ss;if(t>tEx)break;float g=implicit(ro+rd*t);if(prev*g<0.0){hit=t-ss*(g/(g-prev));break;}prev=g;}if(hit<0.0){gl_FragColor=bg;return;}vec3 pos=ro+rd*hit;vec3 n=nrm(pos);if(dot(n,-rd)<0.0)n=-n;float Eval=Edir(normalize(pos)),Enorm=clamp(Eval/Emax,0.0,1.0),dy=dot(n,vec3(0.0,1.0,0.0)),dz=dot(n,vec3(0.0,0.0,1.0)),hue=dy*dy*0.33+dz*dz*0.67+Enorm*0.15;vec3 iridBase=palette(hue),iridShift=palette(hue+0.5),l1=normalize(vec3(1.0,1.8,2.0)),l2=normalize(vec3(-0.8,-0.3,0.6));float l3=max(dot(n,normalize(vec3(-0.5,-1.0,-1.5))),0.0)*0.3,diff=0.35+max(dot(n,l1),0.0)*0.7+max(dot(n,l2),0.0)*0.25+l3,spec1=pow(max(dot(reflect(-l1,n),-rd),0.0),120.0)*1.5,spec2=pow(max(dot(reflect(-l1,n),-rd),0.0),20.0)*0.4,rim=pow(1.0-max(dot(n,-rd),0.0),2.5)*0.8,fresnel=pow(1.0-max(dot(n,-rd),0.0),3.0);vec3 col=mix(iridBase,iridShift,Enorm*0.35)*diff;col+=iridShift*fresnel*0.6;col+=vec3(spec1+spec2);col+=iridShift*rim*0.45;col*=(0.7+Enorm*0.4);gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}';}
+function mkSShader(type,src){var s=sgl.createShader(type);sgl.shaderSource(s,src);sgl.compileShader(s);return s;}
+function initStiffnessGL(){var cv=document.getElementById('ellcv'),wrap=document.getElementById('ellcv-wrap'),w=Math.max(wrap?wrap.offsetWidth:80,40);cv.width=w;cv.height=w;sgl=cv.getContext('webgl');if(!sgl){cv.style.display='none';return false;}if(!squadBuf){squadBuf=sgl.createBuffer();sgl.bindBuffer(sgl.ARRAY_BUFFER,squadBuf);sgl.bufferData(sgl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),sgl.STATIC_DRAW);}sRotMat=smat3Mul(sRotAxisAngle(0,1,0,0.6),sRotAxisAngle(1,0,0,-0.3));sInitialized=true;(function sloop(){requestAnimationFrame(sloop);drawStiffnessSurface();})();return true;}
+function rebuildStiffnessShader(Ex,Ey,Ez,Gxy,nu){if(!sInitialized&&!initStiffnessGL())return;var Emean=(Ex+Ey+Ez)/3;sZoom=3.4*(Math.max(Ex,Ey,Ez)*1.08/Emean);var prg=sgl.createProgram();sgl.attachShader(prg,mkSShader(sgl.VERTEX_SHADER,SVERT));sgl.attachShader(prg,mkSShader(sgl.FRAGMENT_SHADER,buildStiffFrag(Ex,Ey,Ez,Gxy,nu)));sgl.linkProgram(prg);if(!sgl.getProgramParameter(prg,sgl.LINK_STATUS)){console.error(sgl.getProgramInfoLog(prg));return;}if(sprog)sgl.deleteProgram(sprog);sprog=prg;sgl.useProgram(sprog);sgl.bindBuffer(sgl.ARRAY_BUFFER,squadBuf);var loc=sgl.getAttribLocation(sprog,'p');sgl.enableVertexAttribArray(loc);sgl.vertexAttribPointer(loc,2,sgl.FLOAT,false,0,0);suRes=sgl.getUniformLocation(sprog,'res');suRot=sgl.getUniformLocation(sprog,'rot');suZoom=sgl.getUniformLocation(sprog,'zoom');}
+function drawStiffnessSurface(){if(!sprog||!suRes)return;var cv=document.getElementById('ellcv'),wrap=document.getElementById('ellcv-wrap'),w=Math.max(wrap?wrap.offsetWidth:cv.offsetWidth,40);if(cv.width!==w){cv.width=w;cv.height=w;}sRotMat=smat3Mul(sRotAxisAngle(0,1,0,0.003),sRotMat);sRotMat=sOrthonorm(sRotMat);sgl.viewport(0,0,cv.width,cv.height);sgl.uniform2f(suRes,cv.width,cv.height);sgl.uniformMatrix3fv(suRot,false,new Float32Array(sRotMat));sgl.uniform1f(suZoom,sZoom);sgl.drawArrays(sgl.TRIANGLE_STRIP,0,4);}
+
+// Homogenization
+function voxelizeField(params,N){var waves=buildWaves(params),kernels=(params.fieldType==='hyperuniform')?buildHUKernels(params):null,step=1.0/N,vox=new Uint8Array(N*N*N),nSolid=0,sign=params.invert?-1:1;for(var ix=0;ix<N;ix++){var x=(ix+0.5)*step;for(var iy=0;iy<N;iy++){var y=(iy+0.5)*step;for(var iz=0;iz<N;iz++){var z=(iz+0.5)*step;var raw=evalField(waves,x,y,z,kernels);
+        var inside;
+        if(params.topoMode==='half') inside=(-(raw-params.isoLevel)<0);
+        else if(params.topoMode==='solid') inside=(-(Math.abs(raw-params.isoLevel)-params.thickness)<0);
+        else inside=((Math.abs(raw-params.isoLevel)-params.thickness)<0);
+        if(inside){vox[ix*N*N+iy*N+iz]=1;nSolid++;}}}}return{vox:vox,nSolid:nSolid};}
+function computeMIL(vox,N){var N2=N*N;function mil(ax){var t=0;for(var a=0;a<N;a++)for(var b=0;b<N;b++){var p=255;for(var c=0;c<N;c++){var i=ax===0?c*N2+a*N+b:ax===1?a*N2+c*N+b:a*N2+b*N+c;var v=vox[i];if(p!==255&&v!==p)t++;p=v;}}return t===0?N*1e6:(N*N*N)/(t*0.5);}return{milX:mil(0),milY:mil(1),milZ:mil(2)};}
+function hsPlus(Es,nu,rho){var K1=Es/(3*(1-2*nu)),G1=Es/(2*(1+nu)),Kp=K1*rho/(1+(1-rho)*3*K1/(3*K1+4*G1)),Gp=G1*rho/(1+(1-rho)*6*(K1+2*G1)/(5*G1*(3*K1+4*G1)));return{Ehsp:9*Kp*Gp/(3*Kp+Gp),Gp:Gp};}
+function runHomogenization(params,N,Es,nu){var v=voxelizeField(params,N),rho=v.nSolid/(N*N*N),mil=computeMIL(v.vox,N),hx=1/(mil.milX*mil.milX),hy=1/(mil.milY*mil.milY),hz=1/(mil.milZ*mil.milZ),hmean=(hx+hy+hz)/3,wx=hx/hmean,wy=hy/hmean,wz=hz/hmean,hs=hsPlus(Es,nu,rho),Ex=hs.Ehsp*wx,Ey=hs.Ehsp*wy,Ez=hs.Ehsp*wz,Gxy=hs.Gp*Math.sqrt(wx*wy),nuEff=nu*(1-rho),aniso=Math.max(Ex,Ey,Ez)/Math.max(Math.min(Ex,Ey,Ez),1e-9);return{rho:rho,Ex:Ex,Ey:Ey,Ez:Ez,Gxy:Gxy,nuEff:nuEff,aniso:aniso};}
+function displayHomoResults(res,N,Es){function card(label,value,unit,color){return '<div style="background:#0e0e1a;border:0.5px solid #2a2a3a;border-radius:8px;padding:7px 8px;text-align:center"><div style="font-size:15px;font-weight:500;color:'+(color||'#e0e0ff')+'">'+value+'</div><div style="font-size:10px;color:#555;margin-top:1px">'+label+(unit?' <span style="color:#888">'+unit+'</span>':'')+'</div></div>';}var anisoColor=res.aniso<1.1?'#888':res.aniso<1.5?'#22d3ee':'#e879f9';document.getElementById('homoMetrics').innerHTML=card('vol. fraction',(res.rho*100).toFixed(1)+'%','','#22c55e')+card('E<sub>x</sub>',res.Ex.toFixed(2),'GPa','#22d3ee')+card('E<sub>y</sub>',res.Ey.toFixed(2),'GPa','#e879f9')+card('E<sub>z</sub>',res.Ez.toFixed(2),'GPa','#facc15')+card('Zener A',res.aniso.toFixed(3),'',anisoColor)+card('G<sub>xy</sub>',res.Gxy.toFixed(2),'GPa','#a78bfa')+card('&#957;<sub>eff</sub>',res.nuEff.toFixed(3),'','#e0e0ff');document.getElementById('homoResults').style.display='block';document.getElementById('homoStatus').textContent=N+'³ · ρ='+(res.rho*100).toFixed(1)+'% · E_s='+Es+' GPa';var btn=document.getElementById('exportBtn');btn.textContent='Export JSON (+ homog)';btn.style.borderColor='#7c6ff7';btn.style.color='#a89cf7';setTimeout(function(){rebuildStiffnessShader(res.Ex,res.Ey,res.Ez,res.Gxy,res.nuEff);},50);}
+
+// Orchestration
+var gridGen=null,raymarcher=null,sectionViewer=null;
+
+function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:parseFloat(document.getElementById('huWidth').value),huN:parseInt(document.getElementById('huN').value),topoMode:topoMode,invert:topoMode==='solid',resolution:currentResolution};}
+
+function updateControlVisibility(){
+  var ft=document.getElementById('fieldType').value;
+  var isHU=(ft==='hyperuniform');
+  var isGRF=(ft==='gaussian');
+  var isWave=!isHU;
+  var isIso=(dirMode==='iso');
+
+  // Field-type specific panels
+  document.getElementById('grfControls').style.display=isGRF?'block':'none';
+  document.getElementById('huControls').style.display=isHU?'block':'none';
+
+  // Wave-only controls
+  function show(id,vis){var el=document.getElementById(id);if(el)el.style.display=vis?'':'none';}
+  show('nWavesRow',   isWave);
+  show('frequencyRow',isWave);
+  show('smoothingRow',isWave);
+
+  // Kappa is irrelevant in iso mode for all field types
+  show('kappaRow',   !isIso);
+  show('kappaHint',  !isIso);
+
+  // Topology: HU works only in half/solid — hide Sheet button
+  document.getElementById('btnSheet').style.display=isHU?'none':'';
+
+  // Thickness row hides in half-solid mode (already handled in onTopologyToggle)
+  // but also always hide for HU since it uses isoLevel as the only threshold
+  if(isHU && topoMode==='sheet') onTopologyToggle('half');
+  if(!isHU && topoMode==='half') onTopologyToggle('sheet');
+}
+function onFieldTypeChange(){
+  updateControlVisibility();
+  regenerate();
+}
+function regenerate(){if(!gridGen||!sectionViewer||!raymarcher)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(function(){var params=getParams();if(currentViewMode==='sheet'){raymarcher.setParams(params);}else{document.getElementById('status').textContent='Generating...';setTimeout(function(){var t0=performance.now();currentGrid=gridGen.generate(params);sectionViewer.updateGrid(currentGrid,params.resolution);document.getElementById('status').textContent='Generated in '+(performance.now()-t0).toFixed(0)+'ms';},50);}},300);}
+
+function onParamChange(input,displayId){var val=parseFloat(input.value),id=input.id,text=id==='dirTheta'||id==='dirPhi'?val.toFixed(0)+'°':id==='nWaves'||id==='rngSeed'||id==='huN'?val.toFixed(0):val.toFixed(2);document.getElementById(displayId).textContent=text;if(id==='huN'){var hint=document.getElementById('huPerfHint');if(hint)hint.style.display=val>80?'block':'none';}regenerate();}
+
+function onDirModeChange(mode){dirMode=mode;document.getElementById('btnDirSingle').classList.toggle('active',mode==='single');document.getElementById('btnDirOrtho').classList.toggle('active',mode==='ortho');document.getElementById('btnDirIso').classList.toggle('active',mode==='iso');document.getElementById('singleDirControls').style.display=mode==='single'?'block':'none';document.getElementById('orthoDirControls').style.display=mode==='ortho'?'block':'none';updateControlVisibility();regenerate();}
+
+function onTopologyToggle(mode){
+  topoMode=mode;
+  var ids=['btnSheet','btnHalf','btnSolid'],modes=['sheet','half','solid'];
+  for(var i=0;i<ids.length;i++){
+    var active=(modes[i]===mode);
+    document.getElementById(ids[i]).style.background=active?'#7c6ff7':'transparent';
+    document.getElementById(ids[i]).style.color=active?'#fff':'#888';
+    document.getElementById(ids[i]).style.borderColor=active?'#7c6ff7':'#3a3a5a';
+  }
+  // Hide thickness for half-solid — it only uses isoLevel as threshold
+  document.getElementById('thicknessRow').style.display=mode==='half'?'none':'flex';
+  regenerate();
+}
+
+function onViewModeChange(mode){if(!raymarcher||!sectionViewer)return;currentViewMode=mode;var isSection=(mode==='section');document.getElementById('btnViewSheet').classList.toggle('active',!isSection);document.getElementById('btnViewSection').classList.toggle('active',isSection);document.getElementById('sliceControl').style.display=isSection?'flex':'none';document.getElementById('glCanvas').style.display=isSection?'none':'block';document.getElementById('sectionCanvas').style.display=isSection?'block':'none';if(isSection){raymarcher.running=false;showIndicators(false);if(currentGrid)sectionViewer.updateGrid(currentGrid,currentResolution);else regenerate();}else{showIndicators(true);setNoiseStatus(false);setShaderStatus(false);raymarcher.running=true;if(raymarcher._rebuildPending){raymarcher._rebuildPending=false;raymarcher._submitShader(raymarcher.currentParams);}else raymarcher.setParams(getParams());}}
+
+function onSliceAxisChange(axis){if(!sectionViewer)return;currentSliceAxis=axis;document.getElementById('btnAxisX').classList.toggle('active',axis==='x');document.getElementById('btnAxisY').classList.toggle('active',axis==='y');document.getElementById('btnAxisZ').classList.toggle('active',axis==='z');sectionViewer.setAxis(axis);}
+function onSliceChange(input){if(!sectionViewer)return;document.getElementById('sliceValue').textContent=parseFloat(input.value).toFixed(2);sectionViewer.setSlice(parseFloat(input.value));}
+function onResChange(res){currentResolution=res;document.getElementById('btn64').classList.toggle('active',res===64);document.getElementById('btn128').classList.toggle('active',res===128);document.getElementById('btn256').classList.toggle('active',res===256);regenerate();}
+window.onresize=function(){if(!raymarcher||!sectionViewer)return;if(currentViewMode==='sheet')raymarcher.render();else sectionViewer.render();};
+
+function onRunHomogenization(){var btn=document.getElementById('runHomoBtn');btn.disabled=true;btn.textContent='Running...';document.getElementById('homoStatus').textContent='Voxelizing...';setTimeout(function(){var params=getParams(),N=parseInt(document.getElementById('homoGrid').value),Es=parseFloat(document.getElementById('homoEs').value)||100,nu=parseFloat(document.getElementById('homoNu').value)||0.3,t0=performance.now(),res=runHomogenization(params,N,Es,nu),elapsed=(performance.now()-t0).toFixed(0);lastHomogResult={res:res,N:N,Es:Es,nu:nu,params:params};displayHomoResults(res,N,Es);document.getElementById('homoStatus').textContent+=' · '+elapsed+'ms';btn.disabled=false;btn.textContent='Run homogenization';},30);}
+
+function onExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.1.0',tool:'spinodoid-field-explorer',timestamp:new Date().toISOString()},field:{type:params.fieldType,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}var json=JSON.stringify(out,null,2),ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'),blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='spinodoid_'+params.dirMode+'_'+ts+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);navigator.clipboard.writeText(json).catch(function(){});var btn=document.getElementById('exportBtn'),orig=btn.textContent;btn.textContent='Copied + downloaded \u2713';btn.style.color='#69f0ae';btn.style.borderColor='#69f0ae';setTimeout(function(){btn.textContent=orig;btn.style.color=lastHomogResult?'#a89cf7':'#666';btn.style.borderColor=lastHomogResult?'#7c6ff7':'#2a2a3a';},1800);}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var glEl = document.getElementById('glCanvas');
+  var secEl = document.getElementById('sectionCanvas');
+  if(!glEl || !secEl){ console.error('Canvas elements not found'); return; }
+  gridGen = new SpinodoidGridGenerator();
+  raymarcher = new Raymarcher(glEl);
+  sectionViewer = new SectionViewer(secEl);
+  if(!raymarcher.gl){ console.warn('WebGL unavailable — 3D view disabled'); }
+  setTimeout(function(){ updateControlVisibility(); regenerate(); }, 100);
+});
+</script>
+</body>
+</html>
