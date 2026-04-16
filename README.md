@@ -2,7 +2,7 @@
 
 **Part of the [F13LD](https://f13ld.app) tool suite by [Not a Robot Engineering](https://notarobot-eng.com)**
 
-**[Open the Tool](https://github.io/mshomper/f13ld.grain)**
+**[Open the Tool](https://mshomper.github.io/f13ld.grain)**
 
 A browser-based implicit field explorer for generating directionally biased stochastic metamaterial scaffolds. Three mathematically distinct field types share a common design pipeline: interactive 2D section view, WebGL raymarched 3D preview, MIL-HS mechanical homogenization, and JSON export for downstream rendering and validation.
 
