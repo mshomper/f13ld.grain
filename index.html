@@ -7,7 +7,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
-#container{display:flex;flex-direction:column;height:100vh}
+#container{display:flex;flex-direction:column;height:100vh;max-width:1400px;margin:0 auto;width:100%}
 #cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
 canvas{display:block;width:100%;height:100%}
 #status{position:absolute;bottom:10px;left:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
@@ -34,7 +34,7 @@ hr.divider{border:none;border-top:0.5px solid #2a2a3a;margin:10px 0}
 select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;cursor:pointer;width:100%}
 input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;width:56px;text-align:center}
 .surf-controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
-#runHomoBtn{font-size:12px;padding:4px 14px;border:0.5px solid #7c6ff7;border-radius:20px;background:#7c6ff7;color:#fff;cursor:pointer;font-weight:500}#rdRunBtn{font-size:12px;padding:4px 14px;border:0.5px solid #22d3ee;border-radius:20px;background:transparent;color:#22d3ee;cursor:pointer;font-weight:500;width:100%;margin-bottom:4px}#rdRunBtn:disabled{opacity:0.5;cursor:default}
+#runHomoBtn{font-size:12px;padding:4px 14px;border:0.5px solid #7c6ff7;border-radius:20px;background:#7c6ff7;color:#fff;cursor:pointer;font-weight:500}#rdRunBtn{font-size:12px;padding:4px 14px;border:0.5px solid #22d3ee;border-radius:20px;background:transparent;color:#22d3ee;cursor:pointer;font-weight:500;width:100%;margin-bottom:4px}#rdRunBtn:disabled{opacity:0.5;cursor:default}#rdRollBtn{font-size:11px;padding:4px 14px;border:0.5px solid #4a4a5a;border-radius:20px;background:transparent;color:#888;cursor:pointer;font-weight:400;width:100%;margin-bottom:4px}#rdRollBtn:hover{border-color:#22d3ee;color:#22d3ee}#rdRollBtn:disabled{opacity:0.5;cursor:default}
 #runHomoBtn:disabled{opacity:0.5;cursor:default}
 #exportBtn{font-size:12px;padding:3px 10px;border:0.5px solid #2a2a3a;border-radius:20px;background:transparent;color:#666;cursor:pointer;width:100%;margin-top:6px}
 .homo-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
@@ -146,7 +146,7 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
         <option value="spinodoid">Spinodoid (VMF wave superposition)</option>
         <option value="gaussian">Gaussian random field (spectral)</option>
         <option value="hyperuniform">Hyperuniform kernel field</option>
-        <option value="reactiondiffusion">Reaction-diffusion (Gray-Scott)</option>
+        <option value="reactiondiffusion">Reaction-diffusion</option>
       </select>
     </div>
     <div id="grfControls" style="display:none;margin-top:6px">
@@ -162,6 +162,14 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
       <div id="huPerfHint" style="display:none;font-size:10px;color:#f59e0b;margin-top:2px;margin-bottom:6px;line-height:1.5">&#9888; N&gt;80 may be slow in 3D — use Section 2D for high-N exploration.</div>
     </div>
     <div id="rdControls" style="display:none;margin-top:6px">
+      <div class="sc-group"><label>system</label>
+        <select id="rdSystem" onchange="onRDSystemChange()" style="flex:1">
+          <option value="grayscott">Gray-Scott — bicontinuous labyrinth</option>
+          <option value="brusselator">Brusselator — lamellar / cortical</option>
+          <option value="schnakenberg">Schnakenberg — closed-cell spheres</option>
+        </select>
+      </div>
+      <div id="rdFallbackBadge" style="display:none;font-size:10px;color:#f59e0b;margin-top:-4px;margin-bottom:8px;line-height:1.5">&#9888; Brusselator / Schnakenberg require desktop browser &mdash; falling back to Gray-Scott.</div>
       <div class="sc-group"><label>preset</label>
         <select id="rdPreset" onchange="onRDPresetChange()" style="flex:1">
           <option value="micro">Micro — very fine, high surface area</option>
@@ -173,12 +181,14 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
           <option value="custom">Custom</option>
         </select>
       </div>
-      <div class="sc-group"><label>feature scale</label><input type="range" id="rdDu" min="0.08" max="0.20" step="0.01" value="0.14" oninput="onRDParamChange(this,'rdDuValue')"><span class="sv" id="rdDuValue">0.14</span></div>
-      <div class="sc-group"><label>feed rate F</label><input type="range" id="rdF" min="0.014" max="0.044" step="0.001" value="0.030" oninput="onRDParamChange(this,'rdFValue')"><span class="sv" id="rdFValue">0.030</span></div>
-      <div class="sc-group"><label>kill rate k</label><input type="range" id="rdK" min="0.046" max="0.065" step="0.001" value="0.057" oninput="onRDParamChange(this,'rdKValue')"><span class="sv" id="rdKValue">0.057</span></div>
+      <div class="sc-group"><label id="rdDuLbl">feature scale</label><input type="range" id="rdDu" min="0.08" max="0.20" step="0.01" value="0.14" oninput="onRDParamChange(this,'rdDuValue')"><span class="sv" id="rdDuValue">0.14</span></div>
+      <div class="sc-group" id="rdDvRow" style="display:none"><label>inhibitor D<sub>v</sub></label><input type="range" id="rdDv" min="1" max="60" step="0.5" value="16" oninput="onRDParamChange(this,'rdDvValue')"><span class="sv" id="rdDvValue">16.0</span></div>
+      <div class="sc-group"><label id="rdFLbl">feed rate F</label><input type="range" id="rdF" min="0.014" max="0.044" step="0.001" value="0.030" oninput="onRDParamChange(this,'rdFValue')"><span class="sv" id="rdFValue">0.030</span></div>
+      <div class="sc-group"><label id="rdKLbl">kill rate k</label><input type="range" id="rdK" min="0.046" max="0.065" step="0.001" value="0.057" oninput="onRDParamChange(this,'rdKValue')"><span class="sv" id="rdKValue">0.057</span></div>
       <div class="sc-group"><label>tile factor</label><input type="range" id="rdTile" min="1" max="4" step="1" value="2" oninput="onRDParamChange(this,'rdTileValue')"><span class="sv" id="rdTileValue">2</span></div>
       <div style="font-size:10px;color:#f59e0b;margin-top:-8px;margin-bottom:10px;line-height:1.5">&#9888; Exploring outside presets can produce surprising results &mdash; but may also produce nothing at all.</div>
       <button id="rdRunBtn" onclick="onRunRD()">&#9654; Simulate</button>
+      <button id="rdRollBtn" onclick="onRollAndSimulate()">&#127922; Roll &amp; simulate</button>
       <div class="sc-group" style="margin-top:6px"><label>sim steps</label><input type="range" id="rdSteps" min="1000" max="10000" step="500" value="3000" oninput="onRDStepsChange(this)"><span class="sv" id="rdStepsValue">3000</span></div>
       <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:10px;line-height:1.5">each +500 steps &asymp; +0.5s &nbsp;&middot;&nbsp; early steps = immature topology &nbsp;&middot;&nbsp; late steps = equilibrated structure</div>
     </div>
@@ -289,13 +299,16 @@ var GRAIN_WORKER_SRC=[
 'function evalHUField(kernels,x,y,z){var s=0;for(var i=0;i<kernels.length;i++){var k=kernels[i],dx=x-k.px,dy=y-k.py,dz=z-k.pz,dt=dx*k.tx+dy*k.ty+dz*k.tz,dn1=dx*k.n1x+dy*k.n1y+dz*k.n1z,dn2=dx*k.n2x+dy*k.n2y+dz*k.n2z;s+=Math.exp(-(dt*dt)/(k.a*k.a)-(dn1*dn1+dn2*dn2)/(k.b*k.b));}return s-0.3;}',
 'function evalField(waves,x,y,z,kernels){if(kernels)return evalHUField(kernels,x,y,z);var s=0,N=waves.length;for(var i=0;i<N;i++)s+=Math.cos(waves[i].kx*x+waves[i].ky*y+waves[i].kz*z+waves[i].phase);return s/Math.sqrt(N);}',
 'function buildWaves(p){if(p.fieldType==="hyperuniform")return null;return p.fieldType==="gaussian"?buildGRFWaves(p):buildSpinodoidWaves(p);}',
-'function buildGrayScott(params,N,progressCb){var rng=mulberry32(params.rngSeed),F=params.rdF!==undefined?params.rdF:0.030,k=params.rdK!==undefined?params.rdK:0.057,Du=params.rdDu!==undefined?params.rdDu:0.14,Dv=Du*0.5,dt=Math.min(1.0,0.9/(6.0*Du)),steps=params.rdSteps||2000;var u=new Float32Array(N*N*N),v=new Float32Array(N*N*N);for(var i=0;i<N*N*N;i++)u[i]=1.0+(rng()-0.5)*0.02;var nS=Math.max(3,Math.floor(N*N/20));for(var s=0;s<nS;s++){var cx=Math.floor(rng()*(N-4))+2,cy=Math.floor(rng()*(N-4))+2,cz=Math.floor(rng()*(N-4))+2;for(var dz=-1;dz<=1;dz++)for(var dy=-1;dy<=1;dy++)for(var dx2=-1;dx2<=1;dx2++){var ix=(cx+dx2+N)%N,iy=(cy+dy+N)%N,iz=(cz+dz+N)%N,id2=ix+iy*N+iz*N*N;u[id2]=0.5+(rng()-0.5)*0.1;v[id2]=0.25+(rng()-0.5)*0.05;}}var u2=new Float32Array(N*N*N),v2=new Float32Array(N*N*N),tmp;for(var step=0;step<steps;step++){for(var iz=0;iz<N;iz++){var izm=(iz-1+N)%N,izp=(iz+1)%N;for(var iy=0;iy<N;iy++){var iym=(iy-1+N)%N,iyp=(iy+1)%N;for(var ix=0;ix<N;ix++){var ixm=(ix-1+N)%N,ixp=(ix+1)%N,idx=ix+iy*N+iz*N*N,uc=u[idx],vc=v[idx];var lu=u[ixp+iy*N+iz*N*N]+u[ixm+iy*N+iz*N*N]+u[ix+iyp*N+iz*N*N]+u[ix+iym*N+iz*N*N]+u[ix+iy*N+izp*N*N]+u[ix+iy*N+izm*N*N]-6.0*uc;var lv=v[ixp+iy*N+iz*N*N]+v[ixm+iy*N+iz*N*N]+v[ix+iyp*N+iz*N*N]+v[ix+iym*N+iz*N*N]+v[ix+iy*N+izp*N*N]+v[ix+iy*N+izm*N*N]-6.0*vc;var uv2=uc*vc*vc,nu=uc+dt*(Du*lu-uv2+F*(1.0-uc)),nv=vc+dt*(Dv*lv+uv2-(F+k)*vc);u2[idx]=nu<0?0:nu>1?1:nu;v2[idx]=nv<0?0:nv>1?1:nv;}}}tmp=u;u=u2;u2=tmp;tmp=v;v=v2;v2=tmp;if(progressCb&&(step+1)%progressCb.chunk===0){progressCb.fn(u,step+1);}}var minV=Infinity,maxV=-Infinity;for(var i=0;i<N*N*N;i++){if(u[i]<minV)minV=u[i];if(u[i]>maxV)maxV=u[i];}var maxG=0;for(var iz=1;iz<N-1;iz++)for(var iy=1;iy<N-1;iy++)for(var ix=1;ix<N-1;ix++){var idx=ix+iy*N+iz*N*N,gx=(u[idx+1]-u[idx-1])*0.5,gy=(u[idx+N]-u[idx-N])*0.5,gz=(u[idx+N*N]-u[idx-N*N])*0.5,g=Math.sqrt(gx*gx+gy*gy+gz*gz);if(g>maxG)maxG=g;}return{u:u,min:minV,max:maxV,lip:Math.max(maxG*1.1,0.01)};}',
+'function buildGrayScott(params,N,progressCb){var rng=mulberry32(params.rngSeed),F=params.rdF!==undefined?params.rdF:0.030,k=params.rdK!==undefined?params.rdK:0.057,Du=params.rdDu!==undefined?params.rdDu:0.14,Dv=Du*0.5,dt=Math.min(1.0,0.9/(6.0*Du)),steps=params.rdSteps||2000;var u=new Float32Array(N*N*N),v=new Float32Array(N*N*N);for(var i=0;i<N*N*N;i++)u[i]=1.0+(rng()-0.5)*0.02;var nS=Math.max(3,Math.floor(N*N/20));for(var s=0;s<nS;s++){var cx=Math.floor(rng()*(N-4))+2,cy=Math.floor(rng()*(N-4))+2,cz=Math.floor(rng()*(N-4))+2;for(var dz=-1;dz<=1;dz++)for(var dy=-1;dy<=1;dy++)for(var dx2=-1;dx2<=1;dx2++){var ix=(cx+dx2+N)%N,iy=(cy+dy+N)%N,iz=(cz+dz+N)%N,id2=ix+iy*N+iz*N*N;u[id2]=0.5+(rng()-0.5)*0.1;v[id2]=0.25+(rng()-0.5)*0.05;}}var u2=new Float32Array(N*N*N),v2=new Float32Array(N*N*N),tmp;for(var step=0;step<steps;step++){for(var iz=0;iz<N;iz++){var izm=(iz-1+N)%N,izp=(iz+1)%N;for(var iy=0;iy<N;iy++){var iym=(iy-1+N)%N,iyp=(iy+1)%N;for(var ix=0;ix<N;ix++){var ixm=(ix-1+N)%N,ixp=(ix+1)%N,idx=ix+iy*N+iz*N*N,uc=u[idx],vc=v[idx];var lu=u[ixp+iy*N+iz*N*N]+u[ixm+iy*N+iz*N*N]+u[ix+iyp*N+iz*N*N]+u[ix+iym*N+iz*N*N]+u[ix+iy*N+izp*N*N]+u[ix+iy*N+izm*N*N]-6.0*uc;var lv=v[ixp+iy*N+iz*N*N]+v[ixm+iy*N+iz*N*N]+v[ix+iyp*N+iz*N*N]+v[ix+iym*N+iz*N*N]+v[ix+iy*N+izp*N*N]+v[ix+iy*N+izm*N*N]-6.0*vc;var uv2=uc*vc*vc,nu=uc+dt*(Du*lu-uv2+F*(1.0-uc)),nv=vc+dt*(Dv*lv+uv2-(F+k)*vc);u2[idx]=nu<0?0:nu>1?1:nu;v2[idx]=nv<0?0:nv>1?1:nv;}}}tmp=u;u=u2;u2=tmp;tmp=v;v=v2;v2=tmp;if(progressCb&&(step+1)%progressCb.chunk===0){progressCb.fn(u,step+1);}}var minV=Infinity,maxV=-Infinity;for(var i=0;i<N*N*N;i++){if(u[i]<minV)minV=u[i];if(u[i]>maxV)maxV=u[i];}var maxG=0;for(var iz=1;iz<N-1;iz++)for(var iy=1;iy<N-1;iy++)for(var ix=1;ix<N-1;ix++){var idx=ix+iy*N+iz*N*N,gx=(u[idx+1]-u[idx-1])*0.5,gy=(u[idx+N]-u[idx-N])*0.5,gz=(u[idx+N*N]-u[idx-N*N])*0.5,g=Math.sqrt(gx*gx+gy*gy+gz*gz);if(g>maxG)maxG=g;}return{u:u,min:minV,max:maxV,lip:Math.max(maxG*1.1*N/(2.0*Math.PI),0.01)};}',
+'function buildBrusselator(params,N,progressCb){var rng=mulberry32(params.rngSeed),a=params.rdF!==undefined?params.rdF:1.0,b=params.rdK!==undefined?params.rdK:3.5,Du=params.rdDu!==undefined?params.rdDu:2.0,Dv=params.rdDv!==undefined?params.rdDv:16.0,dt=Math.min(0.25,0.9/(6.0*Math.max(Du,Dv))),steps=params.rdSteps||3000;var N3=N*N*N,u=new Float32Array(N3),v=new Float32Array(N3),u0=a,v0=b/Math.max(a,1e-6);for(var i=0;i<N3;i++){u[i]=u0+(rng()-0.5)*0.02;v[i]=v0+(rng()-0.5)*0.02;}var u2=new Float32Array(N3),v2=new Float32Array(N3),tmp;for(var step=0;step<steps;step++){for(var iz=0;iz<N;iz++){var izm=(iz-1+N)%N,izp=(iz+1)%N;for(var iy=0;iy<N;iy++){var iym=(iy-1+N)%N,iyp=(iy+1)%N;for(var ix=0;ix<N;ix++){var ixm=(ix-1+N)%N,ixp=(ix+1)%N,idx=ix+iy*N+iz*N*N,uc=u[idx],vc=v[idx];var lu=u[ixp+iy*N+iz*N*N]+u[ixm+iy*N+iz*N*N]+u[ix+iyp*N+iz*N*N]+u[ix+iym*N+iz*N*N]+u[ix+iy*N+izp*N*N]+u[ix+iy*N+izm*N*N]-6.0*uc;var lv=v[ixp+iy*N+iz*N*N]+v[ixm+iy*N+iz*N*N]+v[ix+iyp*N+iz*N*N]+v[ix+iym*N+iz*N*N]+v[ix+iy*N+izp*N*N]+v[ix+iy*N+izm*N*N]-6.0*vc;var uuv=uc*uc*vc,nu=uc+dt*(Du*lu+a-(b+1.0)*uc+uuv),nv=vc+dt*(Dv*lv+b*uc-uuv);u2[idx]=nu<-100?-100:nu>100?100:nu;v2[idx]=nv<-100?-100:nv>100?100:nv;}}}tmp=u;u=u2;u2=tmp;tmp=v;v=v2;v2=tmp;if(progressCb&&(step+1)%progressCb.chunk===0){progressCb.fn(u,step+1);}}var minV=Infinity,maxV=-Infinity;for(var i=0;i<N3;i++){if(u[i]<minV)minV=u[i];if(u[i]>maxV)maxV=u[i];}var rn=maxV-minV||1,maxG=0;for(var iz=1;iz<N-1;iz++)for(var iy=1;iy<N-1;iy++)for(var ix=1;ix<N-1;ix++){var idx=ix+iy*N+iz*N*N,gx=(u[idx+1]-u[idx-1])*0.5/rn,gy=(u[idx+N]-u[idx-N])*0.5/rn,gz=(u[idx+N*N]-u[idx-N*N])*0.5/rn,g=Math.sqrt(gx*gx+gy*gy+gz*gz);if(g>maxG)maxG=g;}for(var i=0;i<N3;i++)u[i]=(u[i]-minV)/rn;return{u:u,min:0,max:1,lip:Math.max(maxG*1.1*N/(2.0*Math.PI),0.01)};}',
+'function buildSchnakenberg(params,N,progressCb){var rng=mulberry32(params.rngSeed),a=params.rdF!==undefined?params.rdF:0.1,b=params.rdK!==undefined?params.rdK:0.9,Du=params.rdDu!==undefined?params.rdDu:1.0,Dv=params.rdDv!==undefined?params.rdDv:40.0,dt=Math.min(0.5,0.9/(6.0*Math.max(Du,Dv))),steps=params.rdSteps||4000;var N3=N*N*N,u=new Float32Array(N3),v=new Float32Array(N3),u0=a+b,v0=b/Math.max((a+b)*(a+b),1e-6);for(var i=0;i<N3;i++){u[i]=u0+(rng()-0.5)*0.02;v[i]=v0+(rng()-0.5)*0.02;}var u2=new Float32Array(N3),v2=new Float32Array(N3),tmp;for(var step=0;step<steps;step++){for(var iz=0;iz<N;iz++){var izm=(iz-1+N)%N,izp=(iz+1)%N;for(var iy=0;iy<N;iy++){var iym=(iy-1+N)%N,iyp=(iy+1)%N;for(var ix=0;ix<N;ix++){var ixm=(ix-1+N)%N,ixp=(ix+1)%N,idx=ix+iy*N+iz*N*N,uc=u[idx],vc=v[idx];var lu=u[ixp+iy*N+iz*N*N]+u[ixm+iy*N+iz*N*N]+u[ix+iyp*N+iz*N*N]+u[ix+iym*N+iz*N*N]+u[ix+iy*N+izp*N*N]+u[ix+iy*N+izm*N*N]-6.0*uc;var lv=v[ixp+iy*N+iz*N*N]+v[ixm+iy*N+iz*N*N]+v[ix+iyp*N+iz*N*N]+v[ix+iym*N+iz*N*N]+v[ix+iy*N+izp*N*N]+v[ix+iy*N+izm*N*N]-6.0*vc;var uuv=uc*uc*vc,nu=uc+dt*(Du*lu+a-uc+uuv),nv=vc+dt*(Dv*lv+b-uuv);u2[idx]=nu<0?0:nu>100?100:nu;v2[idx]=nv<0?0:nv>100?100:nv;}}}tmp=u;u=u2;u2=tmp;tmp=v;v=v2;v2=tmp;if(progressCb&&(step+1)%progressCb.chunk===0){progressCb.fn(u,step+1);}}var minV=Infinity,maxV=-Infinity;for(var i=0;i<N3;i++){if(u[i]<minV)minV=u[i];if(u[i]>maxV)maxV=u[i];}var rn=maxV-minV||1,maxG=0;for(var iz=1;iz<N-1;iz++)for(var iy=1;iy<N-1;iy++)for(var ix=1;ix<N-1;ix++){var idx=ix+iy*N+iz*N*N,gx=(u[idx+1]-u[idx-1])*0.5/rn,gy=(u[idx+N]-u[idx-N])*0.5/rn,gz=(u[idx+N*N]-u[idx-N*N])*0.5/rn,g=Math.sqrt(gx*gx+gy*gy+gz*gz);if(g>maxG)maxG=g;}for(var i=0;i<N3;i++)u[i]=(u[i]-minV)/rn;return{u:u,min:0,max:1,lip:Math.max(maxG*1.1*N/(2.0*Math.PI),0.01)};}',
 'self.onmessage=function(e){try{',
 '  var params=e.data.params,N=e.data.N,step=2*Math.PI/N;',
 '  if(params.fieldType==="reactiondiffusion"){',
 '    var chunkSize=e.data.chunkSize||0,progressCb=null;',
-'    if(chunkSize>0){var snap=new Uint8Array(N*N*N);progressCb={chunk:chunkSize,fn:function(u,s){for(var i=0;i<snap.length;i++)snap[i]=u[i]*255+0.5|0;self.postMessage({type:"progress",field:snap,step:s,N:N});}};}',
-'    var rd=buildGrayScott(params,N,progressCb);',
+'    if(chunkSize>0){var snap=new Uint8Array(N*N*N);progressCb={chunk:chunkSize,fn:function(u,s){var lo=Infinity,hi=-Infinity,n=u.length;for(var i=0;i<n;i++){var x=u[i];if(x<lo)lo=x;if(x>hi)hi=x;}var rn=hi-lo||1;for(var i=0;i<n;i++){var t=(u[i]-lo)/rn*255+0.5|0;snap[i]=t<0?0:t>255?255:t;}self.postMessage({type:"progress",field:snap,step:s,N:N});}};}',
+'    var rdSys=params.rdSystem||"grayscott";',
+'    var rd=rdSys==="brusselator"?buildBrusselator(params,N,progressCb):(rdSys==="schnakenberg"?buildSchnakenberg(params,N,progressCb):buildGrayScott(params,N,progressCb));',
 '    self.postMessage({type:"final",field:rd.u,N:N,fieldMin:rd.min,fieldMax:rd.max,lipschitz:rd.lip},[rd.u.buffer]);return;}',
 '  var waves=buildWaves(params),kernels=params.fieldType==="hyperuniform"?buildHUKernels(params):null;',
 '  var field=new Float32Array(N*N*N),minV=Infinity,maxV=-Infinity;',
@@ -636,10 +649,22 @@ function Raymarcher(canvas){
   this._setupInteraction();
   this._startWorker();
 }
-Raymarcher.prototype._startWorker=function(){var self=this;this.workerAvailable=false;try{var blob=new Blob([GRAIN_WORKER_SRC],{type:'application/javascript'});var w=new Worker(URL.createObjectURL(blob));this.worker=w;this.workerAvailable=true;w.onerror=function(e){self.workerAvailable=false;setNoiseStatus(false);var mb=document.getElementById('mobileModeBadge');if(mb)mb.style.display='inline';var ub=document.getElementById('btnQUltra');if(ub){ub.disabled=true;ub.style.opacity='0.35';ub.title='Ultra requires desktop browser';}if(currentQuality==='ultra'){currentQuality='high';document.getElementById('btnQHigh').classList.add('active');document.getElementById('btnQUltra').classList.remove('active');}if(self.currentParams)self._bakeFieldSync(self.currentParams);};w.onmessage=function(e){var d=e.data;if(d.error){console.error('Worker error:',d.error);setNoiseStatus(false);self._bakeFieldSync(self.currentParams);return;}
+function disableWorkerOnlyRDSystems(){
+  var sel=document.getElementById('rdSystem');
+  if(sel){
+    for(var i=0;i<sel.options.length;i++){
+      var o=sel.options[i];
+      if(o.value!=='grayscott'){o.disabled=true;o.textContent=o.textContent+' (desktop only)';}
+    }
+    if(sel.value!=='grayscott'){sel.value='grayscott';if(typeof onRDSystemChange==='function')onRDSystemChange();}
+  }
+  var badge=document.getElementById('rdFallbackBadge');
+  if(badge)badge.style.display='block';
+}
+Raymarcher.prototype._startWorker=function(){var self=this;this.workerAvailable=false;try{var blob=new Blob([GRAIN_WORKER_SRC],{type:'application/javascript'});var w=new Worker(URL.createObjectURL(blob));this.worker=w;this.workerAvailable=true;w.onerror=function(e){self.workerAvailable=false;setNoiseStatus(false);var mb=document.getElementById('mobileModeBadge');if(mb)mb.style.display='inline';var ub=document.getElementById('btnQUltra');if(ub){ub.disabled=true;ub.style.opacity='0.35';ub.title='Ultra requires desktop browser';}if(currentQuality==='ultra'){currentQuality='high';document.getElementById('btnQHigh').classList.add('active');document.getElementById('btnQUltra').classList.remove('active');}disableWorkerOnlyRDSystems();if(self.currentParams)self._bakeFieldSync(self.currentParams);};w.onmessage=function(e){var d=e.data;if(d.error){console.error('Worker error:',d.error);setNoiseStatus(false);self._bakeFieldSync(self.currentParams);return;}
 if(d.type==='progress'){self._uploadTextureAnim(d.field,d.N);var tot=self.currentParams?self.currentParams.rdSteps:0;setNoiseStatus(true,'step '+d.step+(tot?' / '+tot:'')+'…');var bar=document.getElementById('animBar');var prog=document.getElementById('animProgress');if(prog)prog.style.display='block';if(bar)bar.style.width=(tot?((d.step/tot)*100).toFixed(1):50)+'%';self._dirty=true;return;}
 var prog=document.getElementById('animProgress');if(prog)prog.style.display='none';
-self._uploadTexture3D(d.field,d.N,d.fieldMin,d.fieldMax);self.lipschitz=d.lipschitz;setNoiseStatus(false);self._dirty=true;};}catch(err){var mb=document.getElementById('mobileModeBadge');if(mb)mb.style.display='inline';var ub=document.getElementById('btnQUltra');if(ub){ub.disabled=true;ub.style.opacity='0.35';ub.title='Ultra requires desktop browser';}if(currentQuality==='ultra'){currentQuality='high';document.getElementById('btnQHigh').classList.add('active');document.getElementById('btnQUltra').classList.remove('active');}}}; 
+self._uploadTexture3D(d.field,d.N,d.fieldMin,d.fieldMax);self.lipschitz=d.lipschitz;setNoiseStatus(false);self._dirty=true;};}catch(err){var mb=document.getElementById('mobileModeBadge');if(mb)mb.style.display='inline';var ub=document.getElementById('btnQUltra');if(ub){ub.disabled=true;ub.style.opacity='0.35';ub.title='Ultra requires desktop browser';}if(currentQuality==='ultra'){currentQuality='high';document.getElementById('btnQHigh').classList.add('active');document.getElementById('btnQUltra').classList.remove('active');}disableWorkerOnlyRDSystems();}}; 
 Raymarcher.prototype._uploadTexture3D=function(data,N,fieldMin,fieldMax){var gl=this.gl;this.fieldMin=fieldMin;this.fieldMax=fieldMax;var range=Math.max(fieldMax-fieldMin,1e-6);var bytes=new Uint8Array(N*N*N);for(var i=0;i<data.length;i++)bytes[i]=Math.round(Math.max(0,Math.min(1,(data[i]-fieldMin)/range))*255);if(!this.fieldTex)this.fieldTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,this.fieldTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage3D(gl.TEXTURE_3D,0,gl.R8,N,N,N,0,gl.RED,gl.UNSIGNED_BYTE,bytes);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);gl.bindTexture(gl.TEXTURE_3D,null);this.rawField=data;this.rawFieldN=N;this.bakeN=N;if(this.currentParams&&this.currentParams.fieldType==='reactiondiffusion'){rdGrid=data;rdGridN=N;}};
 Raymarcher.prototype._uploadTextureAnim=function(bytes,N){var gl=this.gl;if(!this.fieldTex||this.bakeN!==N){this.fieldTex=this.fieldTex||gl.createTexture();gl.bindTexture(gl.TEXTURE_3D,this.fieldTex);gl.texImage3D(gl.TEXTURE_3D,0,gl.R8,N,N,N,0,gl.RED,gl.UNSIGNED_BYTE,null);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_3D,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);gl.bindTexture(gl.TEXTURE_3D,null);}gl.bindTexture(gl.TEXTURE_3D,this.fieldTex);gl.texSubImage3D(gl.TEXTURE_3D,0,0,0,0,N,N,N,gl.RED,gl.UNSIGNED_BYTE,bytes);gl.bindTexture(gl.TEXTURE_3D,null);this.bakeN=N;this.fieldMin=0;this.fieldMax=1;this.lipschitz=1.0;};
 Raymarcher.prototype.generateSectionGrid=function(params){
@@ -745,7 +770,7 @@ Raymarcher.prototype._submitShader=function(params){var gl=this.gl;var vs='#vers
 Raymarcher.prototype._activateProgram=function(prg){var gl=this.gl;if(this.prog&&this.prog!==prg)gl.deleteProgram(this.prog);this.prog=prg;gl.useProgram(prg);gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);var loc=gl.getAttribLocation(prg,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);this.uRes=gl.getUniformLocation(prg,'res');this.uRot=gl.getUniformLocation(prg,'rot');this.uZoom=gl.getUniformLocation(prg,'zoom');this.uThick=gl.getUniformLocation(prg,'thickness');this.uIso=gl.getUniformLocation(prg,'isoLevel');this.uInvertSign=gl.getUniformLocation(prg,'invertSign');this.uTopoMode=gl.getUniformLocation(prg,'uTopoMode');this.uField=gl.getUniformLocation(prg,'uField');this.uLipschitz=gl.getUniformLocation(prg,'uLipschitz');this.uFieldMin=gl.getUniformLocation(prg,'uFieldMin');this.uFieldMax=gl.getUniformLocation(prg,'uFieldMax');this.uTile=gl.getUniformLocation(prg,'uTile');this.uNrmStep=gl.getUniformLocation(prg,'uNrmStep');
 this.uHalfInvert=gl.getUniformLocation(prg,'uHalfInvert');};
 Raymarcher.prototype.setParams=function(params){if(!this.gl)return;var prev=this.currentParams;var needRebuild=!prev||(!this.prog&&!this._compiling)||params.quality!==prev.quality;var isRD=params.fieldType==='reactiondiffusion';
-var needRebake=!prev||(isRD?(params.fieldType!==prev.fieldType||params.quality!==prev.quality||params.rngSeed!==prev.rngSeed||params.rdSteps!==prev.rdSteps):(params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.quality!==prev.quality));this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}if(needRebake){var self=this;clearTimeout(this._bakeDebounce);this._bakeDebounce=setTimeout(function(){self._bakeField(params);},150);}this._dirty=true;if(!this._loopRunning)this._startLoop();};
+var needRebake=!prev||(isRD?(params.fieldType!==prev.fieldType):(params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.quality!==prev.quality));this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}if(needRebake){var self=this;clearTimeout(this._bakeDebounce);this._bakeDebounce=setTimeout(function(){self._bakeField(params);},150);}this._dirty=true;if(!this._loopRunning)this._startLoop();};
 Raymarcher.prototype.render=function(){var gl=this.gl;if(!gl)return;if(this._compiling&&this._pendingProg){var ready=true;if(this._khr)ready=gl.getProgramParameter(this._pendingProg,this._khr.COMPLETION_STATUS_KHR);if(ready){if(gl.getProgramParameter(this._pendingProg,gl.LINK_STATUS)){this._activateProgram(this._pendingProg);setShaderStatus(false);}else{console.error('Shader link failed:',gl.getProgramInfoLog(this._pendingProg));gl.deleteProgram(this._pendingProg);setShaderStatus(false);document.getElementById('status').textContent='Shader error';}this._pendingProg=null;this._compiling=false;this._dirty=true;}}if(!this.prog)return;var cssW=this.canvas.clientWidth,cssH=this.canvas.clientHeight;if(cssW===0||cssH===0)return;var dpr=Math.min(window.devicePixelRatio||1,1.5),w=Math.round(cssW*dpr),h=Math.round(cssH*dpr);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}gl.viewport(0,0,w,h);gl.useProgram(this.prog);gl.uniform2f(this.uRes,w,h);gl.uniformMatrix3fv(this.uRot,false,new Float32Array(this.rotMat));gl.uniform1f(this.uZoom,this.camZoom);if(this.currentParams){var p=this.currentParams;gl.uniform1f(this.uThick,p.thickness);gl.uniform1f(this.uIso,p.isoLevel||0);gl.uniform1f(this.uInvertSign,p.invert?-1.0:1.0);gl.uniform1f(this.uTopoMode,p.topoMode==='half'?1.0:p.topoMode==='solid'?2.0:0.0);}if(this.uField!==null&&this.fieldTex){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,this.fieldTex);gl.uniform1i(this.uField,0);gl.uniform1f(this.uLipschitz,this.lipschitz);gl.uniform1f(this.uFieldMin,this.fieldMin||0);gl.uniform1f(this.uFieldMax,this.fieldMax||1);gl.uniform1f(this.uTile,this.currentParams&&this.currentParams.fieldType==='reactiondiffusion'?(this.currentParams.rdTile||1):1.0);var nrmStep=(this.currentParams&&this.currentParams.fieldType==='reactiondiffusion')?(2.0*Math.PI/this.bakeN*1.5):(Math.PI/48.0);gl.uniform1f(this.uNrmStep,nrmStep);gl.uniform1f(this.uHalfInvert,p.halfInvert?1.0:0.0);}  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);drawAxisGizmo(this.rotMat,this.canvas.clientWidth,this.canvas.clientHeight,this.camZoom);this._dirty=false;};
 Raymarcher.prototype._startLoop=function(){var self=this;self._loopRunning=true;var lastTs=0;function loop(ts){var dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;if(self.running){if(self.autoRot){self._applyDelta(dt*50,0);self._dirty=true;}if(self._dirty||self._compiling){self.rotMat=self._orthonorm(self.rotMat);self.render();}}requestAnimationFrame(loop);}requestAnimationFrame(loop);};
 
@@ -826,7 +851,7 @@ function drawAxisGizmo(rotMat,canvasW,canvasH,camZoom){
 
 raymarcher=null,sectionViewer=null;
 
-function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:parseFloat(document.getElementById('huWidth').value),huN:parseInt(document.getElementById('huN').value),topoMode:topoMode,halfInvert:halfInvert,invert:topoMode==='solid',quality:currentQuality,rdDu:parseFloat(document.getElementById('rdDu').value),rdF:parseFloat(document.getElementById('rdF').value),rdK:parseFloat(document.getElementById('rdK').value),rdTile:parseFloat(document.getElementById('rdTile').value),rdSteps:parseInt(document.getElementById('rdSteps').value)};}
+function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:parseFloat(document.getElementById('huWidth').value),huN:parseInt(document.getElementById('huN').value),topoMode:topoMode,halfInvert:halfInvert,invert:topoMode==='solid',quality:currentQuality,rdSystem:document.getElementById('rdSystem')?document.getElementById('rdSystem').value:'grayscott',rdDu:parseFloat(document.getElementById('rdDu').value),rdDv:parseFloat(document.getElementById('rdDv').value),rdF:parseFloat(document.getElementById('rdF').value),rdK:parseFloat(document.getElementById('rdK').value),rdTile:parseFloat(document.getElementById('rdTile').value),rdSteps:parseInt(document.getElementById('rdSteps').value)};}
 
 function updateControlVisibility(){
   var ft=document.getElementById('fieldType').value;
@@ -863,8 +888,7 @@ function updateControlVisibility(){
 function onFieldTypeChange(){
   var ft=document.getElementById('fieldType').value;
   if(ft==='reactiondiffusion'){
-    document.getElementById('rdPreset').value='trabecular';
-    onRDPresetChange();
+    onRDSystemChange();
   }
   updateControlVisibility();
   regenerate();
@@ -877,22 +901,141 @@ function onQualityChange(q){
   document.getElementById('btnQUltra').classList.toggle('active',q==='ultra');
   regenerate();
 }
-var RD_PRESETS={
-  micro:      {F:0.030,k:0.057,Du:0.08,isoLevel:0.50,topology:'sheet',  thickness:0.08,tile:3,steps:5000},
-  fine:       {F:0.030,k:0.057,Du:0.11,isoLevel:0.50,topology:'sheet',  thickness:0.09,tile:3,steps:4000},
-  reticulate: {F:0.030,k:0.062,Du:0.14,isoLevel:0.32,topology:'sheet',  thickness:0.11,tile:1,steps:6500},
-  trabecular: {F:0.030,k:0.057,Du:0.14,isoLevel:0.50,topology:'sheet',  thickness:0.10,tile:2,steps:3000},
-  lamellar:   {F:0.030,k:0.057,Du:0.15,isoLevel:0.50,topology:'sheet',  thickness:0.10,tile:2,steps:4000},
-  cancellous: {F:0.029,k:0.056,Du:0.16,isoLevel:0.60,topology:'half',   thickness:0.10,tile:2,steps:3000}
+var RD_PRESETS_GS={
+  micro:      {a:0.030,b:0.057,Du:0.08,Dv:null,isoLevel:0.50,topology:'sheet', thickness:0.08,tile:2,steps:5000},
+  fine:       {a:0.030,b:0.057,Du:0.11,Dv:null,isoLevel:0.60,topology:'sheet', thickness:0.09,tile:2,steps:4000},
+  reticulate: {a:0.030,b:0.062,Du:0.14,Dv:null,isoLevel:0.57,topology:'half',  thickness:0.11,tile:1,steps:6500,halfInvert:true},
+  trabecular: {a:0.030,b:0.057,Du:0.14,Dv:null,isoLevel:0.50,topology:'sheet', thickness:0.10,tile:2,steps:3000},
+  lamellar:   {a:0.030,b:0.057,Du:0.15,Dv:null,isoLevel:0.50,topology:'sheet', thickness:0.10,tile:1,steps:4000},
+  cancellous: {a:0.029,b:0.056,Du:0.16,Dv:null,isoLevel:0.60,topology:'half',  thickness:0.10,tile:2,steps:3000,halfInvert:false}
 };
+var RD_PRESETS_BR={
+  sphere_array:    {a:1.0, b:3.5, Du:2.0, Dv:16.0, isoLevel:0.55, topology:'half', thickness:0.10, tile:1, steps:3000, halfInvert:false},
+  strut_sheet:     {a:3.5, b:4.5, Du:1.5, Dv:12.0, isoLevel:0.55, topology:'half', thickness:0.10, tile:1, steps:5000, halfInvert:false},
+  worm_labyrinth:  {a:1.5, b:4.5, Du:1.5, Dv:12.0, isoLevel:0.55, topology:'half', thickness:0.10, tile:1, steps:5000, halfInvert:false},
+  angular_maze:    {a:2.0, b:6.0, Du:1.0, Dv:8.0,  isoLevel:0.55, topology:'half', thickness:0.10, tile:1, steps:4000, halfInvert:false}
+};
+var RD_PRESETS_SCH={
+  closed_cell:    {a:0.07, b:0.94, Du:1.0, Dv:40.0, isoLevel:0.45, topology:'half',  thickness:0.10, tile:1, steps:3500, halfInvert:true},
+  elongated_void: {a:0.05, b:0.8,  Du:0.5, Dv:30.0, isoLevel:0.55, topology:'half',  thickness:0.10, tile:2, steps:5000},
+  fine_foam:      {a:0.2,  b:1.2,  Du:0.8, Dv:50.0, isoLevel:0.55, topology:'half',  thickness:0.10, tile:2, steps:6000}
+};
+var RD_PRESET_OPTIONS={
+  grayscott:[
+    {val:'micro',      lbl:'Micro — very fine, high surface area'},
+    {val:'fine',       lbl:'Fine — small trabecular features'},
+    {val:'reticulate', lbl:'Reticulate — dense interconnected network'},
+    {val:'trabecular', lbl:'Trabecular — classic spongy bone'},
+    {val:'lamellar',   lbl:'Lamellar — plate-like cortical character'},
+    {val:'cancellous', lbl:'Cancellous — open marrow spaces'}
+  ],
+  brusselator:[
+    {val:'sphere_array',   lbl:'Sphere Array — discrete bubble packing'},
+    {val:'strut_sheet',    lbl:'Strut Sheet — connected plate network'},
+    {val:'worm_labyrinth', lbl:'Worm Labyrinth — tangled cylindrical struts'},
+    {val:'angular_maze',   lbl:'Angular Maze — orthogonal lattice'}
+  ],
+  schnakenberg:[
+    {val:'closed_cell',    lbl:'Closed Cell — isolated spherical voids'},
+    {val:'elongated_void', lbl:'Elongated Void — prolate cavities'},
+    {val:'fine_foam',      lbl:'Fine Foam — small dense void arrays'}
+  ]
+};
+var RD_SLIDER_CONFIG={
+  grayscott: {
+    duLbl:'feature scale', duMin:0.08, duMax:0.20, duStep:0.01, duDefault:0.14,
+    fLbl:'feed rate F',    fMin:0.014, fMax:0.044, fStep:0.001, fDefault:0.030,
+    kLbl:'kill rate k',    kMin:0.046, kMax:0.065, kStep:0.001, kDefault:0.057,
+    showDv:false,
+    fFixed:3, kFixed:3, duFixed:2
+  },
+  brusselator: {
+    duLbl:'D<sub>u</sub> (activator)', duMin:0.5, duMax:5.0, duStep:0.1, duDefault:2.0,
+    fLbl:'param a (source)',           fMin:0.5,  fMax:5.0, fStep:0.1, fDefault:1.0,
+    kLbl:'param b (consumption)',      kMin:1.0,  kMax:12.0, kStep:0.1, kDefault:3.5,
+    showDv:true, dvMin:1, dvMax:60, dvStep:0.5, dvDefault:16.0,
+    fFixed:2, kFixed:2, duFixed:2, dvFixed:1
+  },
+  schnakenberg: {
+    duLbl:'D<sub>u</sub> (activator)', duMin:0.1,  duMax:3.0, duStep:0.1,  duDefault:1.0,
+    fLbl:'param a (source)',           fMin:0.01, fMax:0.5, fStep:0.01, fDefault:0.1,
+    kLbl:'param b (feed)',             kMin:0.5,  kMax:2.0, kStep:0.01, kDefault:0.9,
+    showDv:true, dvMin:5, dvMax:80, dvStep:1, dvDefault:40.0,
+    fFixed:2, kFixed:2, duFixed:2, dvFixed:1
+  }
+};
+function getCurrentRDSystem(){
+  var el=document.getElementById('rdSystem');
+  return el?el.value:'grayscott';
+}
+function getCurrentRDPresets(){
+  var s=getCurrentRDSystem();
+  return s==='brusselator'?RD_PRESETS_BR:s==='schnakenberg'?RD_PRESETS_SCH:RD_PRESETS_GS;
+}
+function swapRDParams(system){
+  var c=RD_SLIDER_CONFIG[system];if(!c)return;
+  // rdDu — re-label, re-range, re-default
+  var du=document.getElementById('rdDu');
+  document.getElementById('rdDuLbl').innerHTML=c.duLbl;
+  du.min=c.duMin;du.max=c.duMax;du.step=c.duStep;du.value=c.duDefault;
+  document.getElementById('rdDuValue').textContent=c.duDefault.toFixed(c.duFixed);
+  // rdF (repurposed as "a")
+  var rdF=document.getElementById('rdF');
+  document.getElementById('rdFLbl').innerHTML=c.fLbl;
+  rdF.min=c.fMin;rdF.max=c.fMax;rdF.step=c.fStep;rdF.value=c.fDefault;
+  document.getElementById('rdFValue').textContent=c.fDefault.toFixed(c.fFixed);
+  // rdK (repurposed as "b")
+  var rdK=document.getElementById('rdK');
+  document.getElementById('rdKLbl').innerHTML=c.kLbl;
+  rdK.min=c.kMin;rdK.max=c.kMax;rdK.step=c.kStep;rdK.value=c.kDefault;
+  document.getElementById('rdKValue').textContent=c.kDefault.toFixed(c.kFixed);
+  // Dv row visibility + attrs
+  var dvRow=document.getElementById('rdDvRow');
+  var dv=document.getElementById('rdDv');
+  if(c.showDv){
+    dvRow.style.display='';
+    dv.min=c.dvMin;dv.max=c.dvMax;dv.step=c.dvStep;dv.value=c.dvDefault;
+    document.getElementById('rdDvValue').textContent=c.dvDefault.toFixed(c.dvFixed);
+  }else{
+    dvRow.style.display='none';
+  }
+}
+function repopulateRDPresetDropdown(system){
+  var sel=document.getElementById('rdPreset');
+  var opts=RD_PRESET_OPTIONS[system]||RD_PRESET_OPTIONS.grayscott;
+  sel.innerHTML='';
+  for(var i=0;i<opts.length;i++){
+    var o=document.createElement('option');
+    o.value=opts[i].val;o.textContent=opts[i].lbl;
+    sel.appendChild(o);
+  }
+  var custom=document.createElement('option');
+  custom.value='custom';custom.textContent='Custom';
+  sel.appendChild(custom);
+  // pick first preset as default
+  sel.value=opts[0].val;
+}
+function onRDSystemChange(){
+  var s=getCurrentRDSystem();
+  swapRDParams(s);
+  repopulateRDPresetDropdown(s);
+  onRDPresetChange();
+}
 function onRDPresetChange(){
-  var p=RD_PRESETS[document.getElementById('rdPreset').value];if(!p)return;
-  document.getElementById('rdDu').value=p.Du.toFixed(2);
-  document.getElementById('rdDuValue').textContent=p.Du.toFixed(2);
-  document.getElementById('rdF').value=p.F.toFixed(3);
-  document.getElementById('rdFValue').textContent=p.F.toFixed(3);
-  document.getElementById('rdK').value=p.k.toFixed(3);
-  document.getElementById('rdKValue').textContent=p.k.toFixed(3);
+  var presets=getCurrentRDPresets();
+  var p=presets[document.getElementById('rdPreset').value];if(!p)return;
+  var sys=getCurrentRDSystem();
+  var cfg=RD_SLIDER_CONFIG[sys];
+  document.getElementById('rdDu').value=p.Du.toFixed(cfg.duFixed);
+  document.getElementById('rdDuValue').textContent=p.Du.toFixed(cfg.duFixed);
+  document.getElementById('rdF').value=p.a.toFixed(cfg.fFixed);
+  document.getElementById('rdFValue').textContent=p.a.toFixed(cfg.fFixed);
+  document.getElementById('rdK').value=p.b.toFixed(cfg.kFixed);
+  document.getElementById('rdKValue').textContent=p.b.toFixed(cfg.kFixed);
+  if(cfg.showDv && p.Dv!=null){
+    document.getElementById('rdDv').value=p.Dv.toFixed(cfg.dvFixed);
+    document.getElementById('rdDvValue').textContent=p.Dv.toFixed(cfg.dvFixed);
+  }
   document.getElementById('rdTile').value=p.tile;
   document.getElementById('rdTileValue').textContent=p.tile;
   if(p.steps){document.getElementById('rdSteps').value=p.steps;document.getElementById('rdStepsValue').textContent=p.steps;}
@@ -901,10 +1044,22 @@ function onRDPresetChange(){
   document.getElementById('thickness').value=p.thickness.toFixed(2);
   document.getElementById('thicknessValue').textContent=p.thickness.toFixed(2);
   onTopologyToggle(p.topology);
+  if(p.topology==='half' && p.halfInvert){
+    halfInvert=true;
+    document.getElementById('flipGlyph').classList.add('flipped');
+  }
   if(raymarcher)raymarcher.setParams(getParams());
 }
 function onRDParamChange(el,labelId){
-  var v=labelId==='rdTileValue'?parseInt(el.value).toString():labelId==='rdDuValue'?parseFloat(el.value).toFixed(2):parseFloat(el.value).toFixed(3);
+  var sys=getCurrentRDSystem();
+  var cfg=RD_SLIDER_CONFIG[sys]||RD_SLIDER_CONFIG.grayscott;
+  var v;
+  if(labelId==='rdTileValue'){v=parseInt(el.value).toString();}
+  else if(labelId==='rdDuValue'){v=parseFloat(el.value).toFixed(cfg.duFixed);}
+  else if(labelId==='rdDvValue'){v=parseFloat(el.value).toFixed(cfg.dvFixed||1);}
+  else if(labelId==='rdFValue'){v=parseFloat(el.value).toFixed(cfg.fFixed);}
+  else if(labelId==='rdKValue'){v=parseFloat(el.value).toFixed(cfg.kFixed);}
+  else{v=parseFloat(el.value).toFixed(3);}
   document.getElementById(labelId).textContent=v;
   document.getElementById('rdPreset').value='custom';
   if(labelId==='rdTileValue'&&raymarcher)raymarcher.setParams(getParams());
@@ -916,14 +1071,26 @@ function onRDStepsChange(el){
 function onRunRD(){
   if(!raymarcher)return;
   var btn=document.getElementById('rdRunBtn');
+  var rollBtn=document.getElementById('rdRollBtn');
   btn.disabled=true;btn.textContent='simulating…';
+  if(rollBtn)rollBtn.disabled=true;
   setTimeout(function(){
     raymarcher._bakeField(getParams());
     var check=setInterval(function(){
       if(!raymarcher.currentParams||!document.getElementById('labelNoise').textContent.includes('ready'))return;
       clearInterval(check);btn.disabled=false;btn.textContent='▶ Simulate';
+      if(rollBtn)rollBtn.disabled=false;
     },200);
   },20);
+}
+function onRollAndSimulate(){
+  if(!raymarcher)return;
+  var newSeed=Math.floor(Math.random()*999)+1;
+  var slider=document.getElementById('rngSeed');
+  var label=document.getElementById('rngSeedValue');
+  if(slider)slider.value=newSeed;
+  if(label)label.textContent=newSeed;
+  onRunRD();
 }
 function regenerate(){if(!gridGen||!sectionViewer||!raymarcher)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(function(){var params=getParams();if(currentViewMode==='sheet'){raymarcher.setParams(params);}else{document.getElementById('status').textContent='Generating...';setTimeout(function(){var t0=performance.now();if(raymarcher.rawField){  currentGrid=raymarcher.generateSectionGrid(params);  sectionViewer.updateGrid(currentGrid,raymarcher.rawFieldN);}else{  currentGrid=gridGen.generate(params);  sectionViewer.updateGrid(currentGrid,currentResolution);}document.getElementById('status').textContent='Sliced in '+(performance.now()-t0).toFixed(0)+'ms';},50);}},300);}
 
@@ -961,7 +1128,7 @@ window.onresize=function(){if(!raymarcher||!sectionViewer)return;if(currentViewM
 function onRunHomogenization(){var btn=document.getElementById('runHomoBtn');btn.disabled=true;btn.textContent='Running...';document.getElementById('homoStatus').textContent='Voxelizing...';setTimeout(function(){var params=getParams(),N=parseInt(document.getElementById('homoGrid').value),Es=parseFloat(document.getElementById('homoEs').value)||100,nu=parseFloat(document.getElementById('homoNu').value)||0.3,t0=performance.now(),res=runHomogenization(params,N,Es,nu),elapsed=(performance.now()-t0).toFixed(0);lastHomogResult={res:res,N:N,Es:Es,nu:nu,params:params};displayHomoResults(res,N,Es);document.getElementById('homoStatus').textContent+=' · '+elapsed+'ms';btn.disabled=false;btn.textContent='Run homogenization';},30);}
 
 
-function buildExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.9.1',tool:'spinodoid-field-explorer',timestamp:new Date().toISOString()},field:{type:params.fieldType,rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,rd_tile:params.rdTile,rd_steps:params.rdSteps,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}return out;}
+function buildExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.9.2',tool:'grain',timestamp:new Date().toISOString()},field:{type:params.fieldType,rd_system:params.rdSystem,rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,rd_Dv:params.rdDv,rd_tile:params.rdTile,rd_steps:params.rdSteps,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,grf_sigma:params.grfSigma},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}return out;}
 
 function openInMesh(){
   var data=buildExportJSON();
@@ -969,7 +1136,7 @@ function openInMesh(){
   window.open('https://mshomper.github.io/f13ld.mesh/?r='+encoded,'_blank');
 }
 
-function onExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.9.1',tool:'spinodoid-field-explorer',timestamp:new Date().toISOString()},field:{type:params.fieldType,rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,rd_tile:params.rdTile,rd_steps:params.rdSteps,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}var json=JSON.stringify(out,null,2),ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'),blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='spinodoid_'+params.dirMode+'_'+ts+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);navigator.clipboard.writeText(json).catch(function(){});var btn=document.getElementById('exportBtn'),orig=btn.textContent;btn.textContent='Copied + downloaded \u2713';btn.style.color='#69f0ae';btn.style.borderColor='#69f0ae';setTimeout(function(){btn.textContent=orig;btn.style.color=lastHomogResult?'#a89cf7':'#666';btn.style.borderColor=lastHomogResult?'#7c6ff7':'#2a2a3a';},1800);}
+function onExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.9.2',tool:'grain',timestamp:new Date().toISOString()},field:{type:params.fieldType,rd_system:params.rdSystem,rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,rd_Dv:params.rdDv,rd_tile:params.rdTile,rd_steps:params.rdSteps,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,grf_sigma:params.grfSigma},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}var json=JSON.stringify(out,null,2),ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'),blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;var ftSlug=params.fieldType==='reactiondiffusion'?(params.rdSystem||'grayscott'):params.fieldType;a.download='grain_'+ftSlug+'_'+params.dirMode+'_'+ts+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);navigator.clipboard.writeText(json).catch(function(){});var btn=document.getElementById('exportBtn'),orig=btn.textContent;btn.textContent='Copied + downloaded \u2713';btn.style.color='#69f0ae';btn.style.borderColor='#69f0ae';setTimeout(function(){btn.textContent=orig;btn.style.color=lastHomogResult?'#a89cf7':'#666';btn.style.borderColor=lastHomogResult?'#7c6ff7':'#2a2a3a';},1800);}
 
 document.addEventListener('DOMContentLoaded', function(){
   var glEl = document.getElementById('glCanvas');
