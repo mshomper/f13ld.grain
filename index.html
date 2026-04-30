@@ -1128,7 +1128,39 @@ window.onresize=function(){if(!raymarcher||!sectionViewer)return;if(currentViewM
 function onRunHomogenization(){var btn=document.getElementById('runHomoBtn');btn.disabled=true;btn.textContent='Running...';document.getElementById('homoStatus').textContent='Voxelizing...';setTimeout(function(){var params=getParams(),N=parseInt(document.getElementById('homoGrid').value),Es=parseFloat(document.getElementById('homoEs').value)||100,nu=parseFloat(document.getElementById('homoNu').value)||0.3,t0=performance.now(),res=runHomogenization(params,N,Es,nu),elapsed=(performance.now()-t0).toFixed(0);lastHomogResult={res:res,N:N,Es:Es,nu:nu,params:params};displayHomoResults(res,N,Es);document.getElementById('homoStatus').textContent+=' · '+elapsed+'ms';btn.disabled=false;btn.textContent='Run homogenization';},30);}
 
 
-function buildExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.9.2',tool:'grain',timestamp:new Date().toISOString()},field:{type:params.fieldType,rd_system:params.rdSystem,rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,rd_Dv:params.rdDv,rd_tile:params.rdTile,rd_steps:params.rdSteps,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,grf_sigma:params.grfSigma},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}return out;}
+// ── Export JSON schema (v0.9.3) ────────────────────────────────────────
+// Wire-format note (v0.9.3): rd_Dv is OMITTED for Gray-Scott exports.
+// The rdDv DOM input persists at its non-GS scale (default 16) when the
+// row is hidden by swapRDParams, and shipping that literal value pushed
+// Mesh's GS sim Dv ~200× too high — field flattened, no iso-surface, RD
+// imports rendered empty. Mesh's existing fallback (Dv = Du × 0.5 when
+// rd_Dv is absent from the wire) handles the omission correctly.
+// Single source of truth: onExportJSON and openInMesh both call this.
+function buildExportJSON(){
+  var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;
+  var omitDv=(params.fieldType==='reactiondiffusion'&&params.rdSystem==='grayscott');
+  var field={
+    type:params.fieldType,rd_system:params.rdSystem,
+    rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,
+    rd_tile:params.rdTile,rd_steps:params.rdSteps,
+    n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,
+    rng_seed:params.rngSeed,dir_mode:params.dirMode,
+    principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,
+    ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,
+    hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,grf_sigma:params.grfSigma
+  };
+  if(!omitDv) field.rd_Dv=params.rdDv;
+  var out={
+    meta:{version:'0.9.3',tool:'grain',timestamp:new Date().toISOString()},
+    field:field,
+    geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}
+  };
+  if(lastHomogResult){
+    var r=lastHomogResult;
+    out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};
+  }
+  return out;
+}
 
 function openInMesh(){
   var data=buildExportJSON();
@@ -1136,7 +1168,31 @@ function openInMesh(){
   window.open('https://mshomper.github.io/f13ld.mesh/?r='+encoded,'_blank');
 }
 
-function onExportJSON(){var params=getParams(),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;var out={meta:{version:'0.9.2',tool:'grain',timestamp:new Date().toISOString()},field:{type:params.fieldType,rd_system:params.rdSystem,rd_F:params.rdF,rd_k:params.rdK,rd_Du:params.rdDu,rd_Dv:params.rdDv,rd_tile:params.rdTile,rd_steps:params.rdSteps,n_waves:params.nWaves,kappa:params.kappa,frequency:params.frequency,rng_seed:params.rngSeed,dir_mode:params.dirMode,principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,grf_sigma:params.grfSigma},geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}};if(lastHomogResult){var r=lastHomogResult;out.homogenization={grid:r.N,E_solid_GPa:r.Es,poisson:r.nu,volume_fraction:parseFloat((r.res.rho*100).toFixed(2)),Ex_GPa:parseFloat(r.res.Ex.toFixed(3)),Ey_GPa:parseFloat(r.res.Ey.toFixed(3)),Ez_GPa:parseFloat(r.res.Ez.toFixed(3)),Gxy_GPa:parseFloat(r.res.Gxy.toFixed(3)),nu_eff:parseFloat(r.res.nuEff.toFixed(4)),anisotropy:parseFloat(r.res.aniso.toFixed(4)),method:'MIL-HS'};}var json=JSON.stringify(out,null,2),ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-'),blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;var ftSlug=params.fieldType==='reactiondiffusion'?(params.rdSystem||'grayscott'):params.fieldType;a.download='grain_'+ftSlug+'_'+params.dirMode+'_'+ts+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);navigator.clipboard.writeText(json).catch(function(){});var btn=document.getElementById('exportBtn'),orig=btn.textContent;btn.textContent='Copied + downloaded \u2713';btn.style.color='#69f0ae';btn.style.borderColor='#69f0ae';setTimeout(function(){btn.textContent=orig;btn.style.color=lastHomogResult?'#a89cf7':'#666';btn.style.borderColor=lastHomogResult?'#7c6ff7':'#2a2a3a';},1800);}
+// Thin wrapper around buildExportJSON — handles download, clipboard,
+// and button feedback. The schema lives in buildExportJSON; do not
+// duplicate it here. (Pre-v0.9.3 had two parallel copies; rd_Dv
+// regression survived because the fix had to be made in two places.)
+function onExportJSON(){
+  var out=buildExportJSON();
+  var params=getParams();
+  var json=JSON.stringify(out,null,2);
+  var ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  var ftSlug=params.fieldType==='reactiondiffusion'?(params.rdSystem||'grayscott'):params.fieldType;
+  var blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='grain_'+ftSlug+'_'+params.dirMode+'_'+ts+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  navigator.clipboard.writeText(json).catch(function(){});
+  var btn=document.getElementById('exportBtn'),orig=btn.textContent;
+  btn.textContent='Copied + downloaded \u2713';
+  btn.style.color='#69f0ae';btn.style.borderColor='#69f0ae';
+  setTimeout(function(){
+    btn.textContent=orig;
+    btn.style.color=lastHomogResult?'#a89cf7':'#666';
+    btn.style.borderColor=lastHomogResult?'#7c6ff7':'#2a2a3a';
+  },1800);
+}
 
 document.addEventListener('DOMContentLoaded', function(){
   var glEl = document.getElementById('glCanvas');
