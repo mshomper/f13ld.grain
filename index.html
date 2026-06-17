@@ -158,8 +158,18 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
       <div class="sc-group"><label>aspect ratio</label><input type="range" id="huAspect" min="1" max="12" step="0.5" value="4" oninput="onParamChange(this,'huAspectValue')"><span class="sv" id="huAspectValue">4.0</span></div>
       <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">Kernel length/width &mdash; 1=spherical &nbsp;&middot;&nbsp; 4&ndash;8=beam-like &nbsp;&middot;&nbsp; 10+=rod-like</div>
       <div class="sc-group"><label>kernel width</label><input type="range" id="huWidth" min="0.01" max="0.15" step="0.005" value="0.04" oninput="onParamChange(this,'huWidthValue')"><span class="sv" id="huWidthValue">0.040</span></div>
-      <div class="sc-group"><label>N kernels</label><input type="range" id="huN" min="10" max="200" step="5" value="30" oninput="onParamChange(this,'huNValue')"><span class="sv" id="huNValue">30</span></div>
-      <div id="huPerfHint" style="display:none;font-size:10px;color:#f59e0b;margin-top:2px;margin-bottom:6px;line-height:1.5">&#9888; N&gt;80 may be slow in 3D — use Section 2D for high-N exploration.</div>
+      <div class="sc-group"><label>N kernels</label><input type="range" id="huN" min="10" max="500" step="5" value="30" oninput="onParamChange(this,'huNValue')"><span class="sv" id="huNValue">30</span></div>
+      <div class="sc-group" style="margin-top:4px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px"><input type="checkbox" id="huLockScale" onchange="onHuLockChange()" style="width:auto;margin:0">lock feature scale</label><span class="sv" id="huWidthEff" style="display:none;color:#777"></span></div>
+      <div id="huPerfHint" style="display:none;font-size:10px;color:#f59e0b;margin-top:2px;margin-bottom:6px;line-height:1.5">&#9888; N&gt;200 may be slow to bake — use Section 2D for high-N exploration.</div>
+      <div class="sec-lbl" style="margin-top:8px">kernel shape</div>
+      <div class="sc-group"><label>cross-section</label><input type="range" id="huCross" min="1" max="8" step="0.1" value="2" oninput="onParamChange(this,'huCrossValue')"><span class="sv" id="huCrossValue">2.00</span></div>
+      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">1 diamond &nbsp;&middot;&nbsp; 2 round &nbsp;&middot;&nbsp; 6+ square-section</div>
+      <div class="sc-group"><label>edge sharpness</label><input type="range" id="huSharp" min="1" max="5" step="0.1" value="1" oninput="onParamChange(this,'huSharpValue')"><span class="sv" id="huSharpValue">1.00</span></div>
+      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">1 soft taper &nbsp;&middot;&nbsp; higher = flat-top, uniform thickness</div>
+      <div class="sc-group"><label>union blend</label><input type="range" id="huBlend" min="0" max="1" step="0.02" value="0" oninput="onParamChange(this,'huBlendValue')"><span class="sv" id="huBlendValue">1.00</span></div>
+      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">1.0 merged &nbsp;&middot;&nbsp; 8.0 distinct struts</div>
+      <div class="sc-group"><label>transverse aspect</label><input type="range" id="huEll" min="-1" max="1" step="0.05" value="0" oninput="onParamChange(this,'huEllValue')"><span class="sv" id="huEllValue">round</span></div>
+      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">0 round &nbsp;&middot;&nbsp; either side = ribbon/plate cross-section</div>
     </div>
     <div id="rdControls" style="display:none;margin-top:6px">
       <div class="sc-group"><label>system</label>
@@ -292,11 +302,12 @@ var GRAIN_WORKER_SRC=[
 'function mulberry32(seed){var s=seed|0;return function(){s=(s^(s<<13))>>>0;s=(s^(s>>17))>>>0;s=(s^(s<<5))>>>0;return s/4294967296;};}',
 'function sampleVMF(rng,kappa){if(kappa<0.05){var z=2*rng()-1,phi=2*Math.PI*rng(),sr=Math.sqrt(Math.max(0,1-z*z));return[sr*Math.cos(phi),sr*Math.sin(phi),z];}var xi=rng(),W=1+Math.log(xi+(1-xi)*Math.exp(-2*kappa))/kappa,phi=2*Math.PI*rng(),sr=Math.sqrt(Math.max(0,1-W*W));return[sr*Math.cos(phi),sr*Math.sin(phi),W];}',
 'function rotateTo(v,mux,muy,muz){var ax=-muy,ay=mux,an=Math.sqrt(ax*ax+ay*ay);if(an<1e-9)return muz>=0?v:[v[0],-v[1],-v[2]];ax/=an;ay/=an;var c=muz,s=Math.sqrt(Math.max(0,1-c*c)),t=1-c;return[v[0]*(t*ax*ax+c)+v[1]*(t*ax*ay)+v[2]*(s*ay),v[0]*(t*ax*ay)+v[1]*(t*ay*ay+c)+v[2]*(-s*ax),v[0]*(-s*ay)+v[1]*(s*ax)+v[2]*c];}',
-'function buildSpinodoidWaves(params){var rng=mulberry32(params.rngSeed),N=params.nWaves,freq=params.frequency,kappa=params.kappa,mode=params.dirMode,tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180,mu=[Math.sin(tRad)*Math.cos(pRad),Math.sin(tRad)*Math.sin(pRad),Math.cos(tRad)],waves=[];for(var i=0;i<N;i++){var dir;if(mode==="ortho"){var wx=params.wX||1,wy=params.wY||1,wz=params.wZ||1,wt=wx+wy+wz,r=rng()*wt,raw=r<wx?[1,0,0]:r<wx+wy?[0,1,0]:[0,0,1],a2=2*Math.PI*rng(),ref=Math.abs(raw[0])<0.9?[0,raw[2],-raw[1]]:[raw[2],0,-raw[0]],pl=Math.sqrt(ref[0]*ref[0]+ref[1]*ref[1]+ref[2]*ref[2]);ref=[ref[0]/pl,ref[1]/pl,ref[2]/pl];var p2=[raw[1]*ref[2]-raw[2]*ref[1],raw[2]*ref[0]-raw[0]*ref[2],raw[0]*ref[1]-raw[1]*ref[0]],sp=Math.sqrt(1-kappa/100)*0.4,jx=ref[0]*Math.cos(a2)*sp+p2[0]*Math.sin(a2)*sp,jy=ref[1]*Math.cos(a2)*sp+p2[1]*Math.sin(a2)*sp,jz=ref[2]*Math.cos(a2)*sp+p2[2]*Math.sin(a2)*sp,dl=Math.sqrt((raw[0]+jx)*(raw[0]+jx)+(raw[1]+jy)*(raw[1]+jy)+(raw[2]+jz)*(raw[2]+jz))||1;dir=[(raw[0]+jx)/dl,(raw[1]+jy)/dl,(raw[2]+jz)/dl];}else{var vmf=sampleVMF(rng,kappa);dir=rotateTo(vmf,mu[0],mu[1],mu[2]);}var mag=2*Math.PI*freq*(0.85+0.3*rng()),phase=2*Math.PI*rng();waves.push({kx:dir[0]*mag,ky:dir[1]*mag,kz:dir[2]*mag,phase:phase});}return waves;}',
-'function buildGRFWaves(params){var rng=mulberry32(params.rngSeed),N=params.nWaves,freq=params.frequency,mode=params.dirMode,sigma=params.grfSigma||0.3,k0=2*Math.PI*freq,tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180,mu=[Math.sin(tRad)*Math.cos(pRad),Math.sin(tRad)*Math.sin(pRad),Math.cos(tRad)],waves=[];function randn(){var u=1-rng(),v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}for(var i=0;i<N;i++){var phi=2*Math.PI*rng(),ct=2*rng()-1,st=Math.sqrt(1-ct*ct),kdir=[st*Math.cos(phi),st*Math.sin(phi),ct];if(mode!=="isotropic"){var vmf=sampleVMF(rng,params.kappa);kdir=rotateTo(vmf,mu[0],mu[1],mu[2]);}var kmag=k0*Math.exp(sigma*randn()),phase=2*Math.PI*rng();waves.push({kx:kdir[0]*kmag,ky:kdir[1]*kmag,kz:kdir[2]*kmag,phase:phase});}return waves;}',
-'function jitteredGrid3D(N,rng){var pts=[],step=1/N;for(var i=0;i<N;i++)for(var j=0;j<N;j++)for(var k=0;k<N;k++)pts.push([(i+rng())*step,(j+rng())*step,(k+rng())*step]);for(var i=pts.length-1;i>0;i--){var j=Math.floor(rng()*(i+1));var tmp=pts[i];pts[i]=pts[j];pts[j]=tmp;}return pts;}',
-'function buildHUKernels(params){var rng=mulberry32(params.rngSeed),N=params.huN||8,aspect=params.huAspect||3.0,width=params.huWidth||0.25,TWO_PI=2*Math.PI,pts=jitteredGrid3D(Math.ceil(Math.cbrt(N)),rng).slice(0,N),tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180,mu=[Math.sin(tRad)*Math.cos(pRad),Math.sin(tRad)*Math.sin(pRad),Math.cos(tRad)];function cross3(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}function norm3(v){var l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2])||1;return[v[0]/l,v[1]/l,v[2]/l];}var kernels=[];for(var i=0;i<pts.length;i++){var tx,n1,n2;if(params.dirMode==="isotropic"||params.kappa<0.1){var phi=TWO_PI*rng(),ct=2*rng()-1,st=Math.sqrt(1-ct*ct);tx=norm3([st*Math.cos(phi),st*Math.sin(phi),ct]);}else{var vmf=sampleVMF(rng,params.kappa);tx=rotateTo(vmf,mu[0],mu[1],mu[2]);}var ref=Math.abs(tx[0])<0.9?[1,0,0]:[0,1,0];n1=norm3(cross3(tx,ref));n2=cross3(tx,n1);var a=width*Math.PI*aspect,b=width*Math.PI;kernels.push({px:pts[i][0]*TWO_PI-Math.PI,py:pts[i][1]*TWO_PI-Math.PI,pz:pts[i][2]*TWO_PI-Math.PI,tx:tx[0],ty:tx[1],tz:tx[2],n1x:n1[0],n1y:n1[1],n1z:n1[2],n2x:n2[0],n2y:n2[1],n2z:n2[2],a:a,b:b});}return kernels;}',
-'function evalHUField(kernels,x,y,z){var s=0;for(var i=0;i<kernels.length;i++){var k=kernels[i],dx=x-k.px,dy=y-k.py,dz=z-k.pz,dt=dx*k.tx+dy*k.ty+dz*k.tz,dn1=dx*k.n1x+dy*k.n1y+dz*k.n1z,dn2=dx*k.n2x+dy*k.n2y+dz*k.n2z;s+=Math.exp(-(dt*dt)/(k.a*k.a)-(dn1*dn1+dn2*dn2)/(k.b*k.b));}return s-0.3;}',
+'function buildSpinodoidWaves(params){ var rng=mulberry32(params.rngSeed),N=params.nWaves,freq=params.frequency,kappa=params.kappa,mode=params.dirMode; var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180; var mux=Math.sin(tRad)*Math.cos(pRad),muy=Math.sin(tRad)*Math.sin(pRad),muz=Math.cos(tRad); var axes=[[1,0,0],[0,1,0],[0,0,1]],weights=[params.wX,params.wY,params.wZ]; var totalW=Math.max(weights[0]+weights[1]+weights[2],1e-6); var waves=[]; for(var i=0;i<N;i++){ var dir; if(mode==="iso"){dir=sampleVMF(rng,0);} else if(mode==="single"){dir=rotateTo(sampleVMF(rng,kappa),mux,muy,muz);} else{ var r=rng()*totalW,cum=0,chosen=0; for(var a=0;a<3;a++){cum+=weights[a];if(r<=cum){chosen=a;break;}} dir=rotateTo(sampleVMF(rng,kappa),axes[chosen][0],axes[chosen][1],axes[chosen][2]); } var mag=2*Math.PI*freq*(0.85+0.3*rng()),phase=2*Math.PI*rng(); waves.push({kx:dir[0]*mag,ky:dir[1]*mag,kz:dir[2]*mag,phase:phase}); } return waves; }',
+'function buildGRFWaves(params){ var rng=mulberry32(params.rngSeed),N=params.nWaves,freq=params.frequency,mode=params.dirMode; var sigmafrac=params.grfSigma||0.45; var k0base=2*Math.PI*freq; var waves=[]; var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180; var mux=Math.sin(tRad)*Math.cos(pRad),muy=Math.sin(tRad)*Math.sin(pRad),muz=Math.cos(tRad); function randn(){ var u=Math.max(rng(),1e-10),v=rng(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); } for(var i=0;i<N;i++){ var dir=sampleVMF(rng,0); var k0; if(mode==="ortho"){ var wx=params.wX,wy=params.wY,wz=params.wZ; var totalW=Math.max(wx+wy+wz,1e-6); wx/=totalW;wy/=totalW;wz/=totalW; var maxW=Math.max(wx,wy,wz); var kScale=1.0/(Math.max(wx*dir[0]*dir[0]+wy*dir[1]*dir[1]+wz*dir[2]*dir[2],0.05)/maxW); kScale=Math.min(Math.max(kScale,0.3),3.0); k0=k0base*kScale; } else if(mode==="single"){ var alignment=Math.abs(dir[0]*mux+dir[1]*muy+dir[2]*muz); k0=k0base*(1.5-alignment); } else { k0=k0base; } var sigma=sigmafrac*k0; var mag,tries=0; do{ mag=k0+randn()*sigma; tries++; }while(mag<=0&&tries<30); if(mag<=0)mag=k0*0.1; var phase=2*Math.PI*rng(); waves.push({kx:dir[0]*mag,ky:dir[1]*mag,kz:dir[2]*mag,phase:phase}); } return waves; }',
+'function jitteredGrid3D(N, rng) { var cells=Math.ceil(Math.pow(N,1/3)),cellSize=1.0/cells,pts=[]; for(var ix=0;ix<cells;ix++)for(var iy=0;iy<cells;iy++)for(var iz=0;iz<cells;iz++){ var px=(ix+0.5+(rng()-0.5)*0.9)*cellSize; var py=(iy+0.5+(rng()-0.5)*0.9)*cellSize; var pz=(iz+0.5+(rng()-0.5)*0.9)*cellSize; pts.push([Math.max(0.01,Math.min(0.99,px)),Math.max(0.01,Math.min(0.99,py)),Math.max(0.01,Math.min(0.99,pz))]); } for(var i=pts.length-1;i>0;i--){var j=Math.floor(rng()*(i+1));var tmp=pts[i];pts[i]=pts[j];pts[j]=tmp;} return pts.slice(0,N); }',
+'function buildHUKernels(params){ var rng=mulberry32(params.rngSeed),N=params.huN||80,aspect=params.huAspect||4.0,bw=params.huWidth||0.04; var ell=params.huEll||1.0,sq=Math.sqrt(ell); var a=bw*aspect*0.5,b=bw*0.5,b1=b/sq,b2=b*sq; var kappa=params.kappa,mode=params.dirMode; var pts=jitteredGrid3D(N,rng); var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180; var mux=Math.sin(tRad)*Math.cos(pRad),muy=Math.sin(tRad)*Math.sin(pRad),muz=Math.cos(tRad); var axes=[[1,0,0],[0,1,0],[0,0,1]],weights=[params.wX,params.wY,params.wZ],totalW=Math.max(weights[0]+weights[1]+weights[2],1e-6); function cross3(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];} function norm3(v){var l=Math.sqrt(v[0]**2+v[1]**2+v[2]**2)||1;return[v[0]/l,v[1]/l,v[2]/l];} var kernels=[]; for(var i=0;i<N;i++){ var t; if(mode==="iso") t=sampleVMF(rng,0); else if(mode==="single") t=rotateTo(sampleVMF(rng,kappa),mux,muy,muz); else{var r=rng()*totalW,cum=0,chosen=0;for(var ax=0;ax<3;ax++){cum+=weights[ax];if(r<=cum){chosen=ax;break;}}t=rotateTo(sampleVMF(rng,kappa),axes[chosen][0],axes[chosen][1],axes[chosen][2]);} var arb=(Math.abs(t[0])<0.9)?[1,0,0]:[0,1,0]; var n1=norm3(cross3(t,arb)),n2=norm3(cross3(t,n1)); var TWO_PI=2.0*Math.PI; kernels.push({px:pts[i][0]*TWO_PI-Math.PI,py:pts[i][1]*TWO_PI-Math.PI,pz:pts[i][2]*TWO_PI-Math.PI,tx:t[0],ty:t[1],tz:t[2],n1x:n1[0],n1y:n1[1],n1z:n1[2],n2x:n2[0],n2y:n2[1],n2z:n2[2],a:a*TWO_PI,b1:b1*TWO_PI,b2:b2*TWO_PI}); } kernels.cross=params.huCross||2.0; kernels.sharp=params.huSharp||1.0; kernels.blend=params.huBlend||1.0; kernels.accel=buildHUAccel(kernels); return kernels; }',
+'function buildHUAccel(kernels){var PI=Math.PI,DOM=2*PI,n=kernels.length;if(n===0)return null;var p=kernels.cross||2.0,m=kernels.sharp||1.0;var Rcut=Math.pow(16,1/m),fa=Math.sqrt(Rcut),ft=(p===2)?Math.sqrt(Rcut):Math.pow(Rcut,1/p);var hx=new Float64Array(n),hy=new Float64Array(n),hz=new Float64Array(n);for(var i=0;i<n;i++){var k=kernels[i],ha=fa*k.a,h1=ft*k.b1,h2=ft*k.b2;hx[i]=Math.sqrt(ha*ha*k.tx*k.tx+h1*h1*k.n1x*k.n1x+h2*h2*k.n2x*k.n2x);hy[i]=Math.sqrt(ha*ha*k.ty*k.ty+h1*h1*k.n1y*k.n1y+h2*h2*k.n2y*k.n2y);hz[i]=Math.sqrt(ha*ha*k.tz*k.tz+h1*h1*k.n1z*k.n1z+h2*h2*k.n2z*k.n2z);}var cellTarget=2*Math.max(ft*kernels[0].b1,ft*kernels[0].b2);var G=Math.round(DOM/Math.max(cellTarget,1e-6));if(G<4)G=4;if(G>64)G=64;var inv=G/DOM,cells=new Array(G*G*G);for(var i=0;i<n;i++){var k=kernels[i];var x0=(k.px-hx[i]+PI)*inv,x1=(k.px+hx[i]+PI)*inv,y0=(k.py-hy[i]+PI)*inv,y1=(k.py+hy[i]+PI)*inv,z0=(k.pz-hz[i]+PI)*inv,z1=(k.pz+hz[i]+PI)*inv;var cx0=x0<0?0:(x0>=G?G-1:x0|0),cx1=x1<0?0:(x1>=G?G-1:x1|0),cy0=y0<0?0:(y0>=G?G-1:y0|0),cy1=y1<0?0:(y1>=G?G-1:y1|0),cz0=z0<0?0:(z0>=G?G-1:z0|0),cz1=z1<0?0:(z1>=G?G-1:z1|0);for(var cz=cz0;cz<=cz1;cz++)for(var cy=cy0;cy<=cy1;cy++)for(var cx=cx0;cx<=cx1;cx++){var id=cx+cy*G+cz*G*G,lst=cells[id];if(!lst){lst=[];cells[id]=lst;}lst.push(k);}}return {cells:cells,G:G,inv:inv,PI:PI};}',
+'function evalHUField(kernels,x,y,z){var ac=kernels.accel,p=kernels.cross,m=kernels.sharp,P=kernels.blend;var rnd=(p===2),shp=(m===1),bl=(P===1);var s=0,i,k,dx,dy,dz,u,w1,w2,R,Rm;if(ac){var G=ac.G,inv=ac.inv,PI=ac.PI;var cx=((x+PI)*inv)|0;if(cx<0)cx=0;else if(cx>=G)cx=G-1;var cy=((y+PI)*inv)|0;if(cy<0)cy=0;else if(cy>=G)cy=G-1;var cz=((z+PI)*inv)|0;if(cz<0)cz=0;else if(cz>=G)cz=G-1;var lst=ac.cells[cx+cy*G+cz*G*G];if(lst)for(i=0;i<lst.length;i++){k=lst[i];dx=x-k.px;dy=y-k.py;dz=z-k.pz;u=(dx*k.tx+dy*k.ty+dz*k.tz)/k.a;w1=(dx*k.n1x+dy*k.n1y+dz*k.n1z)/k.b1;w2=(dx*k.n2x+dy*k.n2y+dz*k.n2z)/k.b2;R=u*u+(rnd?(w1*w1+w2*w2):(Math.pow(Math.abs(w1),p)+Math.pow(Math.abs(w2),p)));Rm=shp?R:Math.pow(R,m);s+=bl?Math.exp(-Rm):Math.exp(-P*Rm);}}else{for(i=0;i<kernels.length;i++){k=kernels[i];dx=x-k.px;dy=y-k.py;dz=z-k.pz;u=(dx*k.tx+dy*k.ty+dz*k.tz)/k.a;w1=(dx*k.n1x+dy*k.n1y+dz*k.n1z)/k.b1;w2=(dx*k.n2x+dy*k.n2y+dz*k.n2z)/k.b2;R=u*u+(rnd?(w1*w1+w2*w2):(Math.pow(Math.abs(w1),p)+Math.pow(Math.abs(w2),p)));Rm=shp?R:Math.pow(R,m);s+=bl?Math.exp(-Rm):Math.exp(-P*Rm);}}if(!bl)s=Math.pow(s,1/P);return s-0.3;}',
 'function evalField(waves,x,y,z,kernels){if(kernels)return evalHUField(kernels,x,y,z);var s=0,N=waves.length;for(var i=0;i<N;i++)s+=Math.cos(waves[i].kx*x+waves[i].ky*y+waves[i].kz*z+waves[i].phase);return s/Math.sqrt(N);}',
 'function buildWaves(p){if(p.fieldType==="hyperuniform")return null;return p.fieldType==="gaussian"?buildGRFWaves(p):buildSpinodoidWaves(p);}',
 'function buildGrayScott(params,N,progressCb){var rng=mulberry32(params.rngSeed),F=params.rdF!==undefined?params.rdF:0.030,k=params.rdK!==undefined?params.rdK:0.057,Du=params.rdDu!==undefined?params.rdDu:0.14,Dv=Du*0.5,dt=Math.min(1.0,0.9/(6.0*Du)),steps=params.rdSteps||2000;var u=new Float32Array(N*N*N),v=new Float32Array(N*N*N);for(var i=0;i<N*N*N;i++)u[i]=1.0+(rng()-0.5)*0.02;var nS=Math.max(3,Math.floor(N*N/20));for(var s=0;s<nS;s++){var cx=Math.floor(rng()*(N-4))+2,cy=Math.floor(rng()*(N-4))+2,cz=Math.floor(rng()*(N-4))+2;for(var dz=-1;dz<=1;dz++)for(var dy=-1;dy<=1;dy++)for(var dx2=-1;dx2<=1;dx2++){var ix=(cx+dx2+N)%N,iy=(cy+dy+N)%N,iz=(cz+dz+N)%N,id2=ix+iy*N+iz*N*N;u[id2]=0.5+(rng()-0.5)*0.1;v[id2]=0.25+(rng()-0.5)*0.05;}}var u2=new Float32Array(N*N*N),v2=new Float32Array(N*N*N),tmp;for(var step=0;step<steps;step++){for(var iz=0;iz<N;iz++){var izm=(iz-1+N)%N,izp=(iz+1)%N;for(var iy=0;iy<N;iy++){var iym=(iy-1+N)%N,iyp=(iy+1)%N;for(var ix=0;ix<N;ix++){var ixm=(ix-1+N)%N,ixp=(ix+1)%N,idx=ix+iy*N+iz*N*N,uc=u[idx],vc=v[idx];var lu=u[ixp+iy*N+iz*N*N]+u[ixm+iy*N+iz*N*N]+u[ix+iyp*N+iz*N*N]+u[ix+iym*N+iz*N*N]+u[ix+iy*N+izp*N*N]+u[ix+iy*N+izm*N*N]-6.0*uc;var lv=v[ixp+iy*N+iz*N*N]+v[ixm+iy*N+iz*N*N]+v[ix+iyp*N+iz*N*N]+v[ix+iym*N+iz*N*N]+v[ix+iy*N+izp*N*N]+v[ix+iy*N+izm*N*N]-6.0*vc;var uv2=uc*vc*vc,nu=uc+dt*(Du*lu-uv2+F*(1.0-uc)),nv=vc+dt*(Dv*lv+uv2-(F+k)*vc);u2[idx]=nu<0?0:nu>1?1:nu;v2[idx]=nv<0?0:nv>1?1:nv;}}}tmp=u;u=u2;u2=tmp;tmp=v;v=v2;v2=tmp;if(progressCb&&(step+1)%progressCb.chunk===0){progressCb.fn(u,step+1);}}var minV=Infinity,maxV=-Infinity;for(var i=0;i<N*N*N;i++){if(u[i]<minV)minV=u[i];if(u[i]>maxV)maxV=u[i];}var maxG=0;for(var iz=1;iz<N-1;iz++)for(var iy=1;iy<N-1;iy++)for(var ix=1;ix<N-1;ix++){var idx=ix+iy*N+iz*N*N,gx=(u[idx+1]-u[idx-1])*0.5,gy=(u[idx+N]-u[idx-N])*0.5,gz=(u[idx+N*N]-u[idx-N*N])*0.5,g=Math.sqrt(gx*gx+gy*gy+gz*gz);if(g>maxG)maxG=g;}return{u:u,min:minV,max:maxV,lip:Math.max(maxG*1.1*N/(2.0*Math.PI),0.01)};}',
@@ -462,7 +473,8 @@ function jitteredGrid3D(N, rng) {
 
 function buildHUKernels(params){
   var rng=mulberry32(params.rngSeed),N=params.huN||80,aspect=params.huAspect||4.0,bw=params.huWidth||0.04;
-  var a=bw*aspect*0.5,b=bw*0.5;
+  var ell=params.huEll||1.0,sq=Math.sqrt(ell);
+  var a=bw*aspect*0.5,b=bw*0.5,b1=b/sq,b2=b*sq;
   var kappa=params.kappa,mode=params.dirMode;
   var pts=jitteredGrid3D(N,rng);
   var tRad=params.dirTheta*Math.PI/180,pRad=params.dirPhi*Math.PI/180;
@@ -484,10 +496,50 @@ function buildHUKernels(params){
       tx:t[0],ty:t[1],tz:t[2],
       n1x:n1[0],n1y:n1[1],n1z:n1[2],
       n2x:n2[0],n2y:n2[1],n2z:n2[2],
-      a:a*TWO_PI, b:b*TWO_PI
+      a:a*TWO_PI, b1:b1*TWO_PI, b2:b2*TWO_PI
     });
   }
+  kernels.cross=params.huCross||2.0;
+  kernels.sharp=params.huSharp||1.0;
+  kernels.blend=params.huBlend||1.0;
+  kernels.accel=buildHUAccel(kernels);
   return kernels;
+}
+
+function clampCell(v,G){v=v|0;return v<0?0:(v>=G?G-1:v);}
+
+function buildHUAccel(kernels){
+  // Uniform bin grid over [-pi,pi]^3 for the hyperuniform kernel sum.
+  // Each kernel is stamped into every cell its 4-sigma AABB overlaps, so a
+  // field eval only sums the kernels registered in the single cell it lands in.
+  // Dropped kernels are >4 sigma away (per-kernel contribution < exp(-16) ~ 1e-7),
+  // far below 8-bit texture quantization, so the baked field is unchanged.
+  var PI=Math.PI,DOM=2*PI,n=kernels.length;
+  if(n===0)return null;
+  var p=kernels.cross||2.0,m=kernels.sharp||1.0;
+  var Rcut=Math.pow(16,1/m),fa=Math.sqrt(Rcut),ft=(p===2)?Math.sqrt(Rcut):Math.pow(Rcut,1/p);
+  var hx=new Float64Array(n),hy=new Float64Array(n),hz=new Float64Array(n);
+  for(var i=0;i<n;i++){
+    var k=kernels[i],ha=fa*k.a,h1=ft*k.b1,h2=ft*k.b2;
+    hx[i]=Math.sqrt(ha*ha*k.tx*k.tx+h1*h1*k.n1x*k.n1x+h2*h2*k.n2x*k.n2x);
+    hy[i]=Math.sqrt(ha*ha*k.ty*k.ty+h1*h1*k.n1y*k.n1y+h2*h2*k.n2y*k.n2y);
+    hz[i]=Math.sqrt(ha*ha*k.tz*k.tz+h1*h1*k.n1z*k.n1z+h2*h2*k.n2z*k.n2z);
+  }
+  var cellTarget=2*Math.max(ft*kernels[0].b1,ft*kernels[0].b2);
+  var G=Math.round(DOM/Math.max(cellTarget,1e-6));if(G<4)G=4;if(G>64)G=64;
+  var inv=G/DOM,cells=new Array(G*G*G);
+  for(var i=0;i<n;i++){
+    var k=kernels[i];
+    var x0=clampCell((k.px-hx[i]+PI)*inv,G),x1=clampCell((k.px+hx[i]+PI)*inv,G);
+    var y0=clampCell((k.py-hy[i]+PI)*inv,G),y1=clampCell((k.py+hy[i]+PI)*inv,G);
+    var z0=clampCell((k.pz-hz[i]+PI)*inv,G),z1=clampCell((k.pz+hz[i]+PI)*inv,G);
+    for(var cz=z0;cz<=z1;cz++)for(var cy=y0;cy<=y1;cy++)for(var cx=x0;cx<=x1;cx++){
+      var id=cx+cy*G+cz*G*G,lst=cells[id];
+      if(!lst){lst=[];cells[id]=lst;}
+      lst.push(k);
+    }
+  }
+  return {cells:cells,G:G,inv:inv,PI:PI};
 }
 
 function buildGrayScott(params,N){
@@ -523,19 +575,38 @@ function buildGrayScott(params,N){
 }
 
 function evalHUField(kernels,x,y,z){
-  // Coords are world-space [-pi,pi] — no remapping needed
-  var s=0;
-  for(var i=0;i<kernels.length;i++){
-    var k=kernels[i],dx=x-k.px,dy=y-k.py,dz=z-k.pz;
-    var dt=dx*k.tx+dy*k.ty+dz*k.tz;
-    var dn1=dx*k.n1x+dy*k.n1y+dz*k.n1z;
-    var dn2=dx*k.n2x+dy*k.n2y+dz*k.n2z;
-    s+=Math.exp(-(dt*dt)/(k.a*k.a)-(dn1*dn1+dn2*dn2)/(k.b*k.b));
+  // Generalized kernel: value = exp(-(u^2 + |v1|^p + |v2|^p)^m), combined as
+  // (sum value^P)^(1/P). u,v1,v2 are axial/transverse offsets scaled by a,b1,b2.
+  // Defaults p=2, m=1, P=1, b1=b2 reduce to the original Gaussian sum.
+  var ac=kernels.accel,p=kernels.cross,m=kernels.sharp,P=kernels.blend;
+  var rnd=(p===2),shp=(m===1),bl=(P===1);
+  var s=0,i,k,dx,dy,dz,u,w1,w2,R,Rm;
+  if(ac){
+    var G=ac.G,inv=ac.inv,PI=ac.PI;
+    var cx=clampCell((x+PI)*inv,G),cy=clampCell((y+PI)*inv,G),cz=clampCell((z+PI)*inv,G);
+    var lst=ac.cells[cx+cy*G+cz*G*G];
+    if(lst)for(i=0;i<lst.length;i++){
+      k=lst[i];dx=x-k.px;dy=y-k.py;dz=z-k.pz;
+      u=(dx*k.tx+dy*k.ty+dz*k.tz)/k.a;
+      w1=(dx*k.n1x+dy*k.n1y+dz*k.n1z)/k.b1;
+      w2=(dx*k.n2x+dy*k.n2y+dz*k.n2z)/k.b2;
+      R=u*u+(rnd?(w1*w1+w2*w2):(Math.pow(Math.abs(w1),p)+Math.pow(Math.abs(w2),p)));
+      Rm=shp?R:Math.pow(R,m);
+      s+=bl?Math.exp(-Rm):Math.exp(-P*Rm);
+    }
+  }else{
+    for(i=0;i<kernels.length;i++){
+      k=kernels[i];dx=x-k.px;dy=y-k.py;dz=z-k.pz;
+      u=(dx*k.tx+dy*k.ty+dz*k.tz)/k.a;
+      w1=(dx*k.n1x+dy*k.n1y+dz*k.n1z)/k.b1;
+      w2=(dx*k.n2x+dy*k.n2y+dz*k.n2z)/k.b2;
+      R=u*u+(rnd?(w1*w1+w2*w2):(Math.pow(Math.abs(w1),p)+Math.pow(Math.abs(w2),p)));
+      Rm=shp?R:Math.pow(R,m);
+      s+=bl?Math.exp(-Rm):Math.exp(-P*Rm);
+    }
   }
-  // No sqrt(N) division — raw sum in [0,~1] per evaluation point.
-  // Subtract 0.3 so ~30% VF is solid at default settings.
-  // isoLevel slider shifts this threshold (negative = more solid, positive = less).
-  return s - 0.3;
+  if(!bl)s=Math.pow(s,1/P);
+  return s-0.3;
 }
 
 function evalRDField(x,y,z){
@@ -770,7 +841,7 @@ Raymarcher.prototype._submitShader=function(params){var gl=this.gl;var vs='#vers
 Raymarcher.prototype._activateProgram=function(prg){var gl=this.gl;if(this.prog&&this.prog!==prg)gl.deleteProgram(this.prog);this.prog=prg;gl.useProgram(prg);gl.bindBuffer(gl.ARRAY_BUFFER,this.quadBuf);var loc=gl.getAttribLocation(prg,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);this.uRes=gl.getUniformLocation(prg,'res');this.uRot=gl.getUniformLocation(prg,'rot');this.uZoom=gl.getUniformLocation(prg,'zoom');this.uThick=gl.getUniformLocation(prg,'thickness');this.uIso=gl.getUniformLocation(prg,'isoLevel');this.uInvertSign=gl.getUniformLocation(prg,'invertSign');this.uTopoMode=gl.getUniformLocation(prg,'uTopoMode');this.uField=gl.getUniformLocation(prg,'uField');this.uLipschitz=gl.getUniformLocation(prg,'uLipschitz');this.uFieldMin=gl.getUniformLocation(prg,'uFieldMin');this.uFieldMax=gl.getUniformLocation(prg,'uFieldMax');this.uTile=gl.getUniformLocation(prg,'uTile');this.uNrmStep=gl.getUniformLocation(prg,'uNrmStep');
 this.uHalfInvert=gl.getUniformLocation(prg,'uHalfInvert');};
 Raymarcher.prototype.setParams=function(params){if(!this.gl)return;var prev=this.currentParams;var needRebuild=!prev||(!this.prog&&!this._compiling)||params.quality!==prev.quality;var isRD=params.fieldType==='reactiondiffusion';
-var needRebake=!prev||(isRD?(params.fieldType!==prev.fieldType):(params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.quality!==prev.quality));this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}if(needRebake){var self=this;clearTimeout(this._bakeDebounce);this._bakeDebounce=setTimeout(function(){self._bakeField(params);},150);}this._dirty=true;if(!this._loopRunning)this._startLoop();};
+var needRebake=!prev||(isRD?(params.fieldType!==prev.fieldType):(params.nWaves!==prev.nWaves||params.kappa!==prev.kappa||params.dirTheta!==prev.dirTheta||params.dirPhi!==prev.dirPhi||params.dirMode!==prev.dirMode||params.wX!==prev.wX||params.wY!==prev.wY||params.wZ!==prev.wZ||params.frequency!==prev.frequency||params.rngSeed!==prev.rngSeed||params.fieldType!==prev.fieldType||params.grfSigma!==prev.grfSigma||params.huAspect!==prev.huAspect||params.huWidth!==prev.huWidth||params.huN!==prev.huN||params.huCross!==prev.huCross||params.huSharp!==prev.huSharp||params.huBlend!==prev.huBlend||params.huEll!==prev.huEll||params.quality!==prev.quality));this.currentParams=params;if(needRebuild){if(this.running)this._submitShader(params);else this._rebuildPending=true;}if(needRebake){var self=this;clearTimeout(this._bakeDebounce);this._bakeDebounce=setTimeout(function(){self._bakeField(params);},150);}this._dirty=true;if(!this._loopRunning)this._startLoop();};
 Raymarcher.prototype.render=function(){var gl=this.gl;if(!gl)return;if(this._compiling&&this._pendingProg){var ready=true;if(this._khr)ready=gl.getProgramParameter(this._pendingProg,this._khr.COMPLETION_STATUS_KHR);if(ready){if(gl.getProgramParameter(this._pendingProg,gl.LINK_STATUS)){this._activateProgram(this._pendingProg);setShaderStatus(false);}else{console.error('Shader link failed:',gl.getProgramInfoLog(this._pendingProg));gl.deleteProgram(this._pendingProg);setShaderStatus(false);document.getElementById('status').textContent='Shader error';}this._pendingProg=null;this._compiling=false;this._dirty=true;}}if(!this.prog)return;var cssW=this.canvas.clientWidth,cssH=this.canvas.clientHeight;if(cssW===0||cssH===0)return;var dpr=Math.min(window.devicePixelRatio||1,1.5),w=Math.round(cssW*dpr),h=Math.round(cssH*dpr);if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}gl.viewport(0,0,w,h);gl.useProgram(this.prog);gl.uniform2f(this.uRes,w,h);gl.uniformMatrix3fv(this.uRot,false,new Float32Array(this.rotMat));gl.uniform1f(this.uZoom,this.camZoom);if(this.currentParams){var p=this.currentParams;gl.uniform1f(this.uThick,p.thickness);gl.uniform1f(this.uIso,p.isoLevel||0);gl.uniform1f(this.uInvertSign,p.invert?-1.0:1.0);gl.uniform1f(this.uTopoMode,p.topoMode==='half'?1.0:p.topoMode==='solid'?2.0:0.0);}if(this.uField!==null&&this.fieldTex){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_3D,this.fieldTex);gl.uniform1i(this.uField,0);gl.uniform1f(this.uLipschitz,this.lipschitz);gl.uniform1f(this.uFieldMin,this.fieldMin||0);gl.uniform1f(this.uFieldMax,this.fieldMax||1);gl.uniform1f(this.uTile,this.currentParams&&this.currentParams.fieldType==='reactiondiffusion'?(this.currentParams.rdTile||1):1.0);var nrmStep=(this.currentParams&&this.currentParams.fieldType==='reactiondiffusion')?(2.0*Math.PI/this.bakeN*1.5):(Math.PI/48.0);gl.uniform1f(this.uNrmStep,nrmStep);gl.uniform1f(this.uHalfInvert,p.halfInvert?1.0:0.0);}  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);drawAxisGizmo(this.rotMat,this.canvas.clientWidth,this.canvas.clientHeight,this.camZoom);this._dirty=false;};
 Raymarcher.prototype._startLoop=function(){var self=this;self._loopRunning=true;var lastTs=0;function loop(ts){var dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;if(self.running){if(self.autoRot){self._applyDelta(dt*50,0);self._dirty=true;}if(self._dirty||self._compiling){self.rotMat=self._orthonorm(self.rotMat);self.render();}}requestAnimationFrame(loop);}requestAnimationFrame(loop);};
 
@@ -851,7 +922,7 @@ function drawAxisGizmo(rotMat,canvasW,canvasH,camZoom){
 
 raymarcher=null,sectionViewer=null;
 
-function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:parseFloat(document.getElementById('huWidth').value),huN:parseInt(document.getElementById('huN').value),topoMode:topoMode,halfInvert:halfInvert,invert:topoMode==='solid',quality:currentQuality,rdSystem:document.getElementById('rdSystem')?document.getElementById('rdSystem').value:'grayscott',rdDu:parseFloat(document.getElementById('rdDu').value),rdDv:parseFloat(document.getElementById('rdDv').value),rdF:parseFloat(document.getElementById('rdF').value),rdK:parseFloat(document.getElementById('rdK').value),rdTile:parseFloat(document.getElementById('rdTile').value),rdSteps:parseInt(document.getElementById('rdSteps').value)};}
+function getParams(){return{fieldType:document.getElementById('fieldType').value,kappa:parseFloat(document.getElementById('kappa').value),nWaves:parseInt(document.getElementById('nWaves').value),frequency:parseFloat(document.getElementById('frequency').value),rngSeed:parseInt(document.getElementById('rngSeed').value),dirMode:dirMode,dirTheta:parseFloat(document.getElementById('dirTheta').value),dirPhi:parseFloat(document.getElementById('dirPhi').value),wX:parseFloat(document.getElementById('wX').value),wY:parseFloat(document.getElementById('wY').value),wZ:parseFloat(document.getElementById('wZ').value),isoLevel:parseFloat(document.getElementById('isoLevel').value),thickness:parseFloat(document.getElementById('thickness').value),smoothing:parseFloat(document.getElementById('smoothing').value),grfSigma:parseFloat(document.getElementById('grfSigma').value),huAspect:parseFloat(document.getElementById('huAspect').value),huWidth:huEffectiveWidth(),huN:parseInt(document.getElementById('huN').value),huCross:parseFloat(document.getElementById('huCross').value),huSharp:parseFloat(document.getElementById('huSharp').value),huBlend:(1/(1-0.875*parseFloat(document.getElementById('huBlend').value))),huEll:Math.pow(4,parseFloat(document.getElementById('huEll').value)),topoMode:topoMode,halfInvert:halfInvert,invert:topoMode==='solid',quality:currentQuality,rdSystem:document.getElementById('rdSystem')?document.getElementById('rdSystem').value:'grayscott',rdDu:parseFloat(document.getElementById('rdDu').value),rdDv:parseFloat(document.getElementById('rdDv').value),rdF:parseFloat(document.getElementById('rdF').value),rdK:parseFloat(document.getElementById('rdK').value),rdTile:parseFloat(document.getElementById('rdTile').value),rdSteps:parseInt(document.getElementById('rdSteps').value)};}
 
 function updateControlVisibility(){
   var ft=document.getElementById('fieldType').value;
@@ -1094,7 +1165,11 @@ function onRollAndSimulate(){
 }
 function regenerate(){if(!gridGen||!sectionViewer||!raymarcher)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(function(){var params=getParams();if(currentViewMode==='sheet'){raymarcher.setParams(params);}else{document.getElementById('status').textContent='Generating...';setTimeout(function(){var t0=performance.now();if(raymarcher.rawField){  currentGrid=raymarcher.generateSectionGrid(params);  sectionViewer.updateGrid(currentGrid,raymarcher.rawFieldN);}else{  currentGrid=gridGen.generate(params);  sectionViewer.updateGrid(currentGrid,currentResolution);}document.getElementById('status').textContent='Sliced in '+(performance.now()-t0).toFixed(0)+'ms';},50);}},300);}
 
-function onParamChange(input,displayId){var val=parseFloat(input.value),id=input.id,text=id==='dirTheta'||id==='dirPhi'?val.toFixed(0)+'°':id==='nWaves'||id==='rngSeed'||id==='huN'?val.toFixed(0):val.toFixed(2);document.getElementById(displayId).textContent=text;if(id==='huN'){var hint=document.getElementById('huPerfHint');if(hint)hint.style.display=val>80?'block':'none';}regenerate();}
+var HU_NREF=30;
+function huEffectiveWidth(){var w=parseFloat(document.getElementById('huWidth').value);var lk=document.getElementById('huLockScale');if(lk&&lk.checked){var n=parseInt(document.getElementById('huN').value);if(n>0)w=w*Math.cbrt(HU_NREF/n);}return w;}
+function huUpdateLockUI(){var lk=document.getElementById('huLockScale'),eff=document.getElementById('huWidthEff');if(!lk||!eff)return;if(lk.checked){eff.textContent='eff '+huEffectiveWidth().toFixed(3);eff.style.display='inline';}else{eff.style.display='none';}}
+function onHuLockChange(){huUpdateLockUI();regenerate();}
+function onParamChange(input,displayId){var val=parseFloat(input.value),id=input.id,text=id==='huBlend'?(1/(1-0.875*val)).toFixed(2):id==='huEll'?(val===0?'round':val>0?Math.pow(4,val).toFixed(1)+':1':'1:'+Math.pow(4,-val).toFixed(1)):id==='dirTheta'||id==='dirPhi'?val.toFixed(0)+'°':id==='nWaves'||id==='rngSeed'||id==='huN'?val.toFixed(0):val.toFixed(2);document.getElementById(displayId).textContent=text;if(id==='huN'){var hint=document.getElementById('huPerfHint');if(hint)hint.style.display=val>200?'block':'none';}if(id==='huN'||id==='huWidth')huUpdateLockUI();regenerate();}
 
 function onDirModeChange(mode){dirMode=mode;document.getElementById('btnDirSingle').classList.toggle('active',mode==='single');document.getElementById('btnDirOrtho').classList.toggle('active',mode==='ortho');document.getElementById('btnDirIso').classList.toggle('active',mode==='iso');document.getElementById('singleDirControls').style.display=mode==='single'?'block':'none';document.getElementById('orthoDirControls').style.display=mode==='ortho'?'block':'none';updateControlVisibility();regenerate();}
 
@@ -1128,7 +1203,9 @@ window.onresize=function(){if(!raymarcher||!sectionViewer)return;if(currentViewM
 function onRunHomogenization(){var btn=document.getElementById('runHomoBtn');btn.disabled=true;btn.textContent='Running...';document.getElementById('homoStatus').textContent='Voxelizing...';setTimeout(function(){var params=getParams(),N=parseInt(document.getElementById('homoGrid').value),Es=parseFloat(document.getElementById('homoEs').value)||100,nu=parseFloat(document.getElementById('homoNu').value)||0.3,t0=performance.now(),res=runHomogenization(params,N,Es,nu),elapsed=(performance.now()-t0).toFixed(0);lastHomogResult={res:res,N:N,Es:Es,nu:nu,params:params};displayHomoResults(res,N,Es);document.getElementById('homoStatus').textContent+=' · '+elapsed+'ms';btn.disabled=false;btn.textContent='Run homogenization';},30);}
 
 
-// ── Export JSON schema (v0.9.3) ────────────────────────────────────────
+// ── Export JSON schema (v0.9.4) ────────────────────────
+// v0.9.4: kernel-shape keys hu_cross/hu_sharp/hu_blend/hu_ell carry analytical
+// values; readers default 2/1/1/1 (round/Gaussian/sum/round) when absent.────────────────
 // Wire-format note (v0.9.3): rd_Dv is OMITTED for Gray-Scott exports.
 // The rdDv DOM input persists at its non-GS scale (default 16) when the
 // row is hidden by swapRDParams, and shipping that literal value pushed
@@ -1147,11 +1224,11 @@ function buildExportJSON(){
     rng_seed:params.rngSeed,dir_mode:params.dirMode,
     principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,
     ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,
-    hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,grf_sigma:params.grfSigma
+    hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,hu_cross:params.huCross,hu_sharp:params.huSharp,hu_blend:params.huBlend,hu_ell:params.huEll,grf_sigma:params.grfSigma
   };
   if(!omitDv) field.rd_Dv=params.rdDv;
   var out={
-    meta:{version:'0.9.3',tool:'grain',timestamp:new Date().toISOString()},
+    meta:{version:'0.9.4',tool:'grain',timestamp:new Date().toISOString()},
     field:field,
     geometry:{center:params.isoLevel,half_width:params.thickness,smoothing:params.smoothing,topology:params.topoMode,half_invert:params.halfInvert||false}
   };
@@ -1365,10 +1442,26 @@ document.addEventListener('DOMContentLoaded', function(){
         what:'Spatial size of each kernel.',
         see:'Smaller = finer, denser texture; larger = coarser blobs.',
         why:'The feature scale of the hyperuniform field.' },
-      { id:'huN', label:'N kernels', range:'10 \u2013 200', anchor:{row:'#huN'},
+      { id:'huN', label:'N kernels', range:'10 \u2013 500', anchor:{row:'#huN'},
         what:'How many kernels are summed.',
         see:'More = smoother, more uniform coverage; fewer = sparser and lumpier.',
-        why:'Hyperuniformity improves with N \u2014 it suppresses long-range density fluctuations. (N>80 is slow in 3D; use Section 2D.)' }
+        why:'Hyperuniformity improves with N \u2014 it suppresses long-range density fluctuations. (Binned kernel field keeps high N usable; N>200 bakes slower at ultra \u2014 use Section 2D for fast high-N exploration.)' },
+      { id:'hucross', label:'cross-section', range:'1 \u2013 8', anchor:{row:'#huCross'},
+        what:'Transverse contour exponent of each kernel.',
+        see:'1 diamond; 2 round; 6+ square-section struts.',
+        why:'Shapes strut cross-sections without changing size or count.' },
+      { id:'husharp', label:'edge sharpness', range:'1 \u2013 5', anchor:{row:'#huSharp'},
+        what:'Profile falloff exponent (super-Gaussian).',
+        see:'1 = soft taper; higher = flat-topped, uniform-thickness struts.',
+        why:'Controls how crisp the strut boundary is.' },
+      { id:'hublend', label:'union blend', range:'1 \u2013 8', anchor:{row:'#huBlend'},
+        what:'How neighbouring kernels combine.',
+        see:'1 = additive merge; higher = distinct struts toward a hard max.',
+        why:'Tunes junction blending independent of strut thickness.' },
+      { id:'huell', label:'transverse aspect', range:'-1 \u2013 +1 (0 = round)', anchor:{row:'#huEll'},
+        what:'Cross-section ellipticity, area-preserving.',
+        see:'0 = round; either side = ribbon/plate struts (mirror via a 90\u00b0 axis swap).',
+        why:'Adds transverse anisotropy for plate-like, transversely-isotropic forms.' }
     ]},
     { title:'Reaction-diffusion', items:[
       { id:'rdsystem', label:'system', anchor:{row:'#rdSystem'},
