@@ -3,91 +3,344 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spinodoid Field Explorer</title>
+<title>F13LD.grain</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
+/* ============================================================================
+   F13LD UI template · shell.css
+   Tokens, shell (two-pane desktop / bottom-sheet phone), sections, control rows,
+   viewer overlays, shared header, help-system tweaks.
+   Extracted from F13LD.tpms v1.4.0. Paste into the tool's main <style> (or a numbered CSS file).
+   Lines marked PER-TOOL need the tool's values. Everything else stays identical across tools.
+   ========================================================================== */
+/* ── Tokens (OKLCH). Depth comes from lighter surfaces: bg < panel < card < input. ── */
+:root{
+  --bg:oklch(0.13 0.012 265);
+  --panel:oklch(0.17 0.014 265);
+  --card:oklch(0.215 0.016 265);
+  --input:oklch(0.255 0.018 265);
+  --hair:oklch(1 0 0 / 0.09);
+  --hair-strong:oklch(1 0 0 / 0.17);
+  --ink:oklch(0.95 0.01 265);          /* 16.5:1 on panel */
+  --ink-dim:oklch(0.75 0.018 265);     /* 8.6:1 on panel  */
+  --ink-faint:oklch(0.60 0.018 265);   /* 4.8:1 on panel  */
+  /* ── PER-TOOL: the tool's accent (the one action colour) and family colour. Values shown are F13LD.tpms. ── */
+  --accent:oklch(0.80 0.028 93);       /* grain stone (#c4beaa), from brand stroke #3D3A30 */
+  --accent-ink:oklch(0.22 0.02 93);    /* dark text on the accent */
+  --accent-soft:oklch(0.80 0.028 93 / 0.14);
+  --accent-line:oklch(0.80 0.028 93 / 0.45);
+  --family:oklch(0.80 0.028 93);       /* tool-name colour in the header, wordmark only */
+  --ok:oklch(0.80 0.17 150);
+  --axis-x:oklch(0.797 0.134 211.5);   /* #22d3ee */
+  --axis-y:oklch(0.748 0.207 322.2);   /* #e879f9 */
+  --axis-z:oklch(0.861 0.173 91.9);    /* #facc15 */
+  --warn:oklch(0.807 0.126 74.3);
+  --danger:oklch(0.68 0.19 25);
+  --lq-ink:var(--ink);--lq-ink-dim:var(--ink-dim);--lq-ink-faint:var(--ink-faint);
+  --lq-font:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --lq-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --hdr-h:48px;
+  --pane-w:clamp(400px,30vw,440px);
+  --rail-w:56px;
+  --peek:45dvh;
+  --full:88dvh;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;background:#06080f;color:#e0e0ff;font-family:system-ui,sans-serif}
-#container{display:flex;flex-direction:column;height:100vh;max-width:1100px;margin:0 auto;width:100%}
-#cw{position:relative;background:#06080f;border-radius:12px 12px 0 0;overflow:hidden;border:0.5px solid #2a2a3a;flex:1;min-height:0;margin:16px 14px 0}
-canvas{display:block;width:100%;height:100%}
-#status{position:absolute;bottom:10px;left:10px;background:rgba(6,8,15,0.85);padding:5px 10px;border-radius:6px;font-size:11px;color:#555;pointer-events:none;border:0.5px solid #2a2a3a}
-#indicators{position:absolute;top:10px;left:10px;display:none;gap:8px;flex-direction:column;pointer-events:none}
-#qualityOverlay{position:absolute;bottom:10px;right:10px;display:none;gap:4px;z-index:10}
-#qualityOverlay button{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer;transition:color 0.15s,border-color 0.15s}
-#qualityOverlay button.active{color:#22d3ee;border-color:#22d3ee}
-.ind-pill{display:flex;align-items:center;gap:5px;background:rgba(6,8,15,0.85);padding:4px 8px;border-radius:6px;font-size:10px;border:0.5px solid #2a2a3a;white-space:nowrap}
-.ind-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.ind-label{color:#555;text-transform:uppercase;letter-spacing:0.06em}
-#panel{background:#111118;border:0.5px solid #2a2a3a;border-top:none;border-radius:0 0 12px 12px;padding:12px 14px;overflow-y:auto;max-height:52vh;margin:0 14px 14px}
-h1{font-size:13px;font-weight:500;color:#7c8aaa;letter-spacing:0.08em;text-transform:uppercase;margin:14px 14px 10px;flex-shrink:0}
-hr.divider{border:none;border-top:0.5px solid #2a2a3a;margin:10px 0}
-.sec-lbl{font-size:10px;color:#18f370;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
-.sc-group{display:flex;align-items:center;gap:6px;margin-bottom:22px}
-.sc-group label{font-size:12px;color:#888;white-space:nowrap;min-width:84px}
-.sc-group input[type=range]{flex:1;accent-color:#22d3ee;height:5px;background:#1a1a2e;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none}
-.sc-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
-.sc-group input[type=range]::-moz-range-thumb{width:26px;height:26px;background:#0e1a2e;border:2.5px solid #22d3ee;border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(34,211,238,0.35)}
-.sc-group .sv{font-size:12px;font-weight:500;color:#e0e0ff;min-width:40px;font-variant-numeric:tabular-nums;text-align:right}
-.mode-strip{display:flex;gap:4px}
-.mode-btn{font-size:11px;padding:3px 10px;border:0.5px solid #3a3a5a;border-radius:20px;background:transparent;color:#888;cursor:pointer}
-.mode-btn.active{background:#7c6ff7;color:#fff;border-color:#7c6ff7}
-select{font-size:12px;padding:3px 6px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;cursor:pointer;width:100%}
-input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5px solid #3a3a5a;border-radius:5px;color:#e0e0ff;width:56px;text-align:center}
-.surf-controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
-#runHomoBtn{font-size:12px;padding:4px 14px;border:0.5px solid #7c6ff7;border-radius:20px;background:#7c6ff7;color:#fff;cursor:pointer;font-weight:500}#rdRunBtn{font-size:12px;padding:4px 14px;border:0.5px solid #22d3ee;border-radius:20px;background:transparent;color:#22d3ee;cursor:pointer;font-weight:500;width:100%;margin-bottom:4px}#rdRunBtn:disabled{opacity:0.5;cursor:default}#rdRollBtn{font-size:11px;padding:4px 14px;border:0.5px solid #4a4a5a;border-radius:20px;background:transparent;color:#888;cursor:pointer;font-weight:400;width:100%;margin-bottom:4px}#rdRollBtn:hover{border-color:#22d3ee;color:#22d3ee}#rdRollBtn:disabled{opacity:0.5;cursor:default}
-#runHomoBtn:disabled{opacity:0.5;cursor:default}
-#exportBtn{font-size:12px;padding:3px 10px;border:0.5px solid #2a2a3a;border-radius:20px;background:transparent;color:#666;cursor:pointer;width:100%;margin-top:6px}
-.homo-controls{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
-.homo-controls label{font-size:12px;color:#888;display:flex;align-items:center;gap:4px}
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700&display=swap');
-.f13ld-header{display:flex;align-items:center;justify-content:space-between;background:#06080f;border-bottom:0.5px solid #1a2a1a;padding:0 14px;height:48px;flex-shrink:0;font-family:'Exo 2',system-ui,sans-serif;}
+html,body{height:100%;background:var(--bg);color:var(--ink);font:400 13px/1.45 var(--lq-font);overflow:hidden;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.ic{width:16px;height:16px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block}
+.ic.sm{width:14px;height:14px}
+/* 44px hit areas: the drawn element may be smaller; ::after carries the hit box */
+.hit{position:relative}
+.hit::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+
+/* ── Shell ── */
+#app{height:100dvh;display:flex;flex-direction:column}
+#main{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) var(--pane-w)}
+#viewPane{position:relative;min-width:0;min-height:0}
+#cw{position:absolute;inset:0;background:var(--bg);overflow:hidden}
+canvas#c{display:block;width:100%;height:100%;touch-action:none}
+#axisCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:12}
+#ctrlPane{position:relative;min-height:0;min-width:0;display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);background:var(--panel);border-left:1px solid var(--hair)}
+#sectionsRail{grid-column:1;grid-row:1;min-height:0;position:relative}
+/* one section at a time; the column scrolls only if that section is taller than it.
+   Edges fade only where content is hidden (.ft / .fb set by the layout script). */
+#ctrlScroll{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;--ft:0px;--fb:0px;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 var(--ft),#000 calc(100% - var(--fb)),transparent 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 var(--ft),#000 calc(100% - var(--fb)),transparent 100%)}
+#ctrlScroll.ft{--ft:20px}
+#ctrlScroll.fb{--fb:28px}
+#sheetHandle,#sectionsBar{display:none}
+
+/* ── Sections ── */
+.sec{display:none;padding:20px 16px 32px 4px;min-width:0}
+.sec.on{display:block}
+.sec-h{display:flex;align-items:baseline;gap:8px;font-size:15px;font-weight:600;color:var(--ink);letter-spacing:0.01em;margin-bottom:14px}
+.sec-h .sec-n{font:500 11px/1 var(--lq-mono);color:var(--ink-faint)}
+.sub-h{font-size:11px;font-weight:600;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 6px;display:flex;align-items:center}
+
+/* ── Control rows (help system ROW_SEL = .sc-group) ── */
+.sc-group{display:flex;align-items:center;gap:8px;min-width:0}
+.sc-group>label,.lbl{font-size:13px;color:var(--ink-dim);white-space:nowrap;display:inline-flex;align-items:center}
+.sc-group .sv{font:500 13px/1 var(--lq-mono);color:var(--ink);font-variant-numeric:tabular-nums;text-align:right;min-width:44px}
+.mm-hint{font:400 11px/1 var(--lq-mono);color:var(--ink-faint);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mm-hint.show{color:var(--ink-faint)}
+/* slider row: label · mm hint · value on top, full-width slider beneath */
+.sl{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:8px;margin:2px 0 4px}
+.sl>label{grid-column:1;grid-row:1}
+.sl>.mm-hint{grid-column:2;grid-row:1;justify-self:end}
+.sl>.sv{grid-column:3;grid-row:1}
+.sl>input[type=range]{grid-column:1/-1;grid-row:2}
+.sl>.row-extra{grid-column:1/-1;grid-row:3}
+input[type=range]{width:100%;height:44px;margin:0;accent-color:var(--accent);background:transparent;cursor:pointer;touch-action:pan-y}
+/* text / number / select fields */
+/* PER-TOOL: add the tool's own field classes/ids to these two selector lists */
+.fld,.fld-num,select.fld,input[type=number]{
+  height:44px;min-width:44px;padding:0 10px;background:var(--input);border:1px solid transparent;border-radius:10px;color:var(--ink);
+  font:400 13px var(--lq-font);outline:none;transition:border-color .15s var(--ease)}
+.fld-num{font-family:var(--lq-mono);text-align:center;font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.fld:focus,.fld-num:focus{border-color:var(--accent-line)}
+select{cursor:pointer}
+.unit{font-size:13px;color:var(--ink-faint)}
+
+/* ── Switch (normalize, term on/off) ── */
+.sw{display:inline-flex;align-items:center;gap:8px;min-height:44px;background:none;border:0;padding:0 2px;color:var(--ink-dim);font-size:13px;white-space:nowrap}
+.sw-t{position:relative;width:30px;height:18px;border-radius:9px;background:var(--input);box-shadow:inset 0 0 0 1px var(--hair-strong);transition:background .18s var(--ease);flex:0 0 auto}
+.sw-t::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--ink-faint);transition:transform .18s var(--ease),background .18s var(--ease)}
+.sw.on .sw-t{background:var(--accent);box-shadow:none}
+.sw.on .sw-t::after{transform:translateX(12px);background:var(--accent-ink)}
+.sw:focus-visible{outline:2px solid var(--accent-line);outline-offset:2px;border-radius:8px}
+
+
+/* ── Viewer overlays ── */
+.vw-bl{position:absolute;left:10px;bottom:10px;z-index:14;display:flex;align-items:center;gap:6px}
+#clipOverlay{display:flex;align-items:center;gap:2px;padding:0 4px 0 10px;height:40px;background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.clip-lbl{font-size:11px;color:var(--ink-faint);margin-right:4px}
+.clip-pill{width:36px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--ink-dim);border:1px solid transparent;border-radius:8px;font:600 13px/1 var(--lq-font);transition:color .15s var(--ease),border-color .15s var(--ease),background .15s var(--ease)}
+.clip-pill:hover{color:var(--ink)}
+.clip-pill.active{background:oklch(1 0 0 / 0.06)}
+#cw .f13v{top:10px;left:10px}
+#cw .f13v>button{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 12px;font:500 13px var(--lq-font);color:var(--ink-dim);background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#cw .f13v>button:hover,#cw .f13v>button[aria-expanded=true]{color:var(--ink);border-color:var(--hair-strong)}
+#cw .f13v-p{background:oklch(0.17 0.014 265 / 0.95);border:1px solid var(--hair);border-radius:12px;padding:6px 12px 8px 10px;font:400 13px var(--lq-font)}
+#cw .f13v-p label{font-size:13px;color:var(--ink);min-height:36px}
+#cw .f13v-p input{width:16px;height:16px;accent-color:var(--accent)}
+#cw .f13v-p .f13v-r{font:400 13px var(--lq-font);color:var(--ink-dim);border:1px solid var(--hair-strong);border-radius:8px;padding:6px 12px}
+
+/* ── Header (shared F13LD markup, restyled to tokens) ── */
+.f13ld-header{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-bottom:1px solid var(--hair);padding:0 14px;padding-top:env(safe-area-inset-top);min-height:48px;flex:0 0 auto;font-family:'Exo 2',system-ui,sans-serif;position:relative;z-index:60}
 .fh-left{display:flex;align-items:center;gap:10px}
 .fh-brand{display:flex;align-items:center;gap:8px;text-decoration:none}
 .fh-wordmark{font-size:17px;font-weight:700;letter-spacing:0.1em;line-height:1}
-.fh-divider{width:0.5px;height:24px;background:#1a2a1a}
-.fh-tool-name{font-size:15px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;line-height:1}
-.fh-right{display:flex;align-items:center;gap:10px}
-.fh-version{font-size:10px;color:#2a3a2a;letter-spacing:0.1em;font-family:'Exo 2',system-ui,sans-serif}
+.fh-divider{width:1px;height:24px;background:var(--hair)}
+.fh-tool-name{font-size:15px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;line-height:1;color:var(--family)}
+.fh-right{display:flex;align-items:center;gap:8px}
+.fh-version{font-size:11px;color:var(--ink-faint);letter-spacing:0.08em;font-family:'Exo 2',system-ui,sans-serif}
 .fh-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.fh-mesh-btn{font-size:11px;padding:4px 12px;border:0.5px solid #1D9E75;border-radius:20px;background:rgba(29,158,117,0.08);color:#1D9E75;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap;transition:background 0.15s}
-.fh-mesh-btn:hover{background:rgba(29,158,117,0.18)}
-/* ── Header handoff buttons (same in every F13LD design tool) ──
-   Short labels so they fit on phones; each tooltip carries the full name.
-   Queue's ▾ (pick which queue) is joined to the Queue pill as one split control. */
+.fh-mesh-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--hair-strong);border-radius:999px;background:var(--card);color:var(--ink-dim);font:500 13px var(--lq-font);white-space:nowrap;transition:color .15s var(--ease),border-color .15s var(--ease),background .15s var(--ease)}
+.fh-mesh-btn:hover{color:var(--ink);border-color:var(--ink-faint)}
+.fh-mesh-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+/* Queue button comes from the external queue client: its icon is a drawn SVG mask, so it survives text changes */
+.f13ldq-main::before,#f13ldq-fallback::before{content:'';width:16px;height:16px;flex:0 0 auto;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M2.5 4h8M2.5 8h8M2.5 12h4.5M12.5 9.5v5M10 12h5'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M2.5 4h8M2.5 8h8M2.5 12h4.5M12.5 9.5v5M10 12h5'/%3E%3C/svg%3E") center/16px 16px no-repeat}
 .fh-right .f13ldq-split{gap:0}
-.fh-right .f13ldq-split .f13ldq-main{border-radius:20px 0 0 20px;border-right:none;padding-right:9px}
-.fh-right .f13ldq-split .f13ldq-caret{border-radius:0 20px 20px 0;padding-left:7px;padding-right:8px;border-left:0.5px solid rgba(29,158,117,0.4)}
-/* Phones: brand + help/version/icon on the top row; Queue, Mesh and Lab share
+.fh-right .f13ldq-split .f13ldq-main{border-radius:999px 0 0 999px;border-right:none;padding-right:9px}
+.fh-right .f13ldq-split .f13ldq-caret{border-radius:0 999px 999px 0;padding-left:8px;padding-right:9px;border-left:1px solid var(--hair-strong);font-size:0}
+.fh-right .f13ldq-split .f13ldq-caret::before{content:'';width:12px;height:12px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E") center/12px 12px no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E") center/12px 12px no-repeat}
+.hdr-msg{position:absolute;right:12px;top:calc(100% + 8px);max-width:min(340px,calc(100vw - 24px));padding:10px 12px;background:var(--card);border:1px solid var(--hair-strong);border-radius:12px;color:var(--ink);font:400 13px/1.45 var(--lq-font);box-shadow:0 8px 24px oklch(0 0 0 / 0.4);z-index:70}
+.hdr-msg[hidden]{display:none}
+/* help system (engine untouched): bigger hit areas and type ≥ 11px, tool-side */
+.f13ld-header .f13h-trigger{position:relative;width:32px;height:32px;font-size:15px;border:1px solid var(--hair-strong);color:var(--ink-dim)}
+.f13ld-header .f13h-trigger::after{content:'';position:absolute;inset:-7px}
+body .f13h-i{position:relative;width:18px;height:18px;font-size:11px;border-width:1px}
+body .f13h-i::after{content:'';position:absolute;inset:-14px}
+body .f13h-head h2 span,body .f13h-range,body .f13h-section-t,body .f13h-tut{font-size:11px}
+body .f13h-tag{font-size:11px;width:44px;letter-spacing:0.04em}
+body .f13h-line{font-size:13px}
+body .f13h-intro{font-size:13px}
+body .f13h-name{font-size:13px}
+body .f13h-close{width:44px;height:44px}
+
+/* Phones (header): brand + help/version/icon on the top row; Queue, Mesh and Lab share
    one row underneath (the ::after is a zero-height line break between them). */
 @media (max-width:560px){
-  .f13ld-header{flex-wrap:wrap;height:auto;padding:8px 12px 10px;row-gap:0;column-gap:8px}
+  .f13ld-header{flex-wrap:wrap;padding:8px 12px 10px;padding-top:calc(8px + env(safe-area-inset-top));row-gap:0;column-gap:8px}
   .f13ld-header::after{content:'';order:1;flex:0 0 100%;height:0}
   .fh-right{display:contents}
   .fh-left{order:0;margin-right:auto}
-  .f13ld-header .f13h-trigger,.fh-version,.fh-icon{order:1}
+  .f13ld-header .f13h-trigger,.fh-version,.fh-icon,#w-recipe{order:1}
   .fh-right .fh-mesh-btn,.fh-right .f13ldq-split{order:2;margin-top:8px}
-  .fh-mesh-btn{flex:1 1 0;min-width:0;text-align:center;padding:7px 6px}
+  .fh-mesh-btn{flex:1 1 0;min-width:0;height:36px;padding:0 6px}
   .fh-right .f13ldq-split{flex:1.4 1 0;min-width:0;display:flex}
   .fh-right .f13ldq-split .f13ldq-main{flex:1 1 0;margin-top:0}
-  .fh-right .f13ldq-split .f13ldq-caret{flex:0 0 26px;padding:7px 0;margin-top:0}
+  .fh-right .f13ldq-split .f13ldq-caret{flex:0 0 30px;padding:0;margin-top:0}
 }
 
-/* Lab handoff note (non-periodic / unsupported grain types) */
-#labNote{position:fixed;left:50%;top:60px;transform:translateX(-50%);width:min(520px,calc(100vw - 24px));display:none;gap:10px;align-items:flex-start;padding:8px 10px 8px 12px;font-size:12px;line-height:1.5;color:#f0b35b;background:#14100a;border:0.5px solid #5a4214;border-radius:8px;z-index:9000;font-family:'Exo 2',system-ui,sans-serif}
-#labNote.show{display:flex}
-#labNote span{flex:1 1 auto}
-#labNote button{background:none;border:none;color:#8a7d62;font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
-#flipBtn{font-size:11px;padding:3px 10px;border:0.5px solid #22d3ee;border-radius:20px;background:transparent;color:#22d3ee;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background 0.15s}
-#flipBtn:hover{background:rgba(34,211,238,0.08)}
-#flipGlyph{display:inline-block;transition:transform 0.25s;line-height:1;font-size:13px}
-#flipGlyph.flipped{transform:rotate(180deg)}
+/* ── Phone / narrow (< 900px): viewer on top, controls in a draggable bottom sheet ── */
+@media (max-width:899px){
+  #main{display:block;position:relative}
+  #viewPane{height:calc(100dvh - var(--hdr-h) - var(--peek))}
+  #ctrlPane{position:fixed;left:0;right:0;bottom:0;z-index:50;height:var(--sheet-h,var(--peek));max-height:calc(100dvh - var(--hdr-h));
+    display:flex;flex-direction:column;border-left:none;border-radius:18px 18px 0 0;
+    box-shadow:0 -1px 0 var(--hair-strong),0 -12px 32px oklch(0 0 0 / 0.35);transition:height .26s var(--ease)}
+  #ctrlPane.dragging{transition:none}
+  #sectionsRail{display:none}
+  #sheetHandle{display:flex;flex:0 0 22px;align-items:center;justify-content:center;position:relative;touch-action:none;cursor:grab;background:none;border:0;width:100%}
+  #sheetHandle::before{content:'';width:36px;height:4px;border-radius:2px;background:var(--hair-strong)}
+  #sheetHandle::after{content:'';position:absolute;left:0;right:0;top:-12px;bottom:-10px}
+  #ctrlScroll{flex:1 1 auto;padding:0 16px}
+  .sec{padding:6px 0 20px}
+  #sectionsBar{display:block;flex:0 0 auto;border-top:1px solid var(--hair);padding-bottom:env(safe-area-inset-bottom);background:var(--panel)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:0s !important;animation-duration:0s !important}
+}
+/* fallback section tabs in #sectionsBar (the liquid tab bar replaces .sb-fallback; also the no-WebGL path) */
+.sb-fallback{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.sb-fallback button{min-height:52px;background:none;border:0;color:var(--ink-faint);font-size:13px;font-weight:500}
+.sb-fallback button.on{color:var(--accent)}
 
-#axisCanvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:12}
-.clip-pill{background:rgba(6,8,15,0.85);color:#555;border:0.5px solid #2a2a3a;border-radius:5px;font-size:11px;font-weight:600;letter-spacing:0.04em;padding:4px 9px;cursor:pointer;transition:color 0.15s,border-color 0.15s;font-family:inherit;line-height:1}
+/* ============================================================================
+   F13LD.grain · tool CSS (stage 2). Everything below uses the shell tokens.
+   ========================================================================== */
+[id^="w-"]:empty{display:none}
+.sc-group.stack{flex-direction:column;align-items:stretch;gap:4px;margin:6px 0}
+.sc-group.stack>label{min-height:20px}
+.sc-group.stack select,.sc-group.stack .fld-num{width:100%}
+.sc-group + .sc-group{margin-top:2px}
+.sub-h:first-child{margin-top:0}
+.hint{font-size:11px;line-height:1.5;color:var(--ink-faint);margin:2px 0 8px}
+.sl{margin:2px 0 10px}
+.sl>.hint,.sl>.row-extra.hint{margin:-6px 0 0}
+:root{color-scheme:dark}
+.hint.warn{color:var(--warn)}
+.hint .ic{display:inline-block;vertical-align:-2px;margin-right:6px;width:14px;height:14px}
+.grp{margin-bottom:6px}
+.grp+.grp{margin-top:8px}
+.dir-note{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;margin-bottom:12px;background:var(--card);border-radius:10px;font-size:13px;color:var(--ink-dim);line-height:1.45}
+.dir-note[hidden]{display:none}
+#dirBiasSection{transition:opacity .2s var(--ease)}
+#dirBiasSection.off{opacity:0.38;pointer-events:none}
+
+/* checkbox row (lock feature scale) */
+.chk{display:inline-flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-size:13px;color:var(--ink-dim)}
+.chk input{width:20px;height:20px;margin:0;accent-color:var(--accent);cursor:pointer}
+#huWidthEff{margin-left:auto;color:var(--ink-faint)}
+
+/* segmented buttons (mode, topology) */
+.mode-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;width:100%;padding:3px;background:var(--input);border-radius:12px}
+.mode-btn{min-height:44px;padding:0 6px;border:0;border-radius:9px;background:transparent;color:var(--ink-dim);font:500 13px var(--lq-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s var(--ease),color .15s var(--ease)}
+.mode-btn:hover{color:var(--ink)}
+.mode-btn.active{background:var(--accent);color:var(--accent-ink)}
+.mode-btn:focus-visible,.btn:focus-visible,.clip-pill:focus-visible,#qualityOverlay button:focus-visible{outline:2px solid var(--accent-line);outline-offset:2px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--hair-strong);background:transparent;color:var(--ink-dim);font:500 13px var(--lq-font);transition:background .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
+.btn:hover{color:var(--ink);border-color:var(--ink-faint)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{color:var(--accent-ink);filter:brightness(1.06)}
+.btn.sm{width:auto}
+#flipBtn{width:auto;margin-top:2px}
+#flipGlyph{display:inline-flex;transition:transform .25s var(--ease)}
+#flipGlyph.flipped{transform:rotate(180deg)}
+#flipRow{margin:4px 0 8px}
+#rdRollBtn{margin-top:8px}
+#exportBtn{margin-top:20px}
+#exportBtn.has-results{border-color:var(--accent-line);color:var(--accent)}
+#exportBtn.done{border-color:var(--ok);color:var(--ok)}
+.run-row{margin:8px 0 4px}
+
+/* analyze */
+.hc-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.hc-row .sc-group{margin:0}
+#homoStatus{min-height:16px;margin:8px 0}
+#homoResults{margin:8px 0}
+#homoMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.mc{background:var(--card);border-radius:10px;padding:8px 6px;text-align:center;min-width:0}
+.mc.w2{grid-column:span 2}
+.mc-v{font:500 15px/1.3 var(--lq-mono);color:var(--ink);font-variant-numeric:tabular-nums}
+.mc-l{font-size:11px;color:var(--ink-faint);margin-top:1px;white-space:nowrap}
+.mc-l span{color:var(--ink-dim)}
+.rcard{background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.rcard-t{font-size:11px;color:var(--ink-faint);margin-bottom:6px}
+.zener-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.zener-top .zl{font-size:11px;color:var(--ink-faint)}
+#zener-val{font:500 15px/1 var(--lq-mono);color:var(--ink-dim)}
+#zener-label{font-size:11px;color:var(--ink-faint);flex:1;text-align:right}
+.zbar{position:relative;height:5px;background:var(--input);border-radius:3px;margin-bottom:6px}
+.zbar-g{position:absolute;inset:0;border-radius:3px;background:linear-gradient(90deg,var(--axis-y) 0%,var(--ink-faint) 40%,var(--ink-faint) 60%,var(--axis-x) 100%);opacity:.45}
+.zbar-1{position:absolute;left:40%;top:-1px;width:1px;height:7px;background:var(--ink-faint)}
+#zener-marker{position:absolute;top:-3px;width:2px;height:11px;background:var(--ink);border-radius:1px;left:40%;transition:left .4s var(--ease)}
+.zscale{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint)}
+#ellcv-wrap{position:relative;width:min(100%,240px);aspect-ratio:1;margin:0 auto}
+#ellcv{position:absolute;inset:0;width:100%;height:100%;border-radius:8px;display:block}
+
+/* viewer overlays */
+canvas#glCanvas{display:block;width:100%;height:100%;touch-action:none}
+.vw-bl{flex-direction:column;align-items:flex-start;gap:6px;max-width:calc(100% - 20px)}
+#status{background:oklch(0.13 0.012 265 / 0.82);padding:6px 10px;border-radius:8px;font-size:11px;color:var(--ink-dim);pointer-events:none;border:1px solid var(--hair)}
+#indicators{display:none;flex-direction:row;flex-wrap:wrap;gap:6px;pointer-events:none}
+.ind-pill{display:flex;align-items:center;gap:6px;background:oklch(0.13 0.012 265 / 0.82);padding:6px 10px;border-radius:8px;font-size:11px;border:1px solid var(--hair);white-space:nowrap}
+.ind-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ind-label{color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.06em}
+#clipOverlay{padding:0 0 0 12px;height:44px}
+.clip-pill{width:44px;height:44px;border-radius:10px;cursor:pointer}
+#clipPillX{--c:var(--axis-x)}#clipPillY{--c:var(--axis-y)}#clipPillZ{--c:var(--axis-z)}
+.clip-pill.active{color:var(--c);border-color:var(--c)}
+#qualityOverlay{position:absolute;top:10px;right:10px;display:none;align-items:center;gap:2px;z-index:14;padding:0 2px;background:oklch(0.13 0.012 265 / 0.82);border:1px solid var(--hair);border-radius:12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#qualityOverlay button{min-width:44px;height:44px;padding:0 8px;background:transparent;color:var(--ink-dim);border:1px solid transparent;border-radius:10px;font:500 13px var(--lq-font);cursor:pointer;transition:color .15s var(--ease),border-color .15s var(--ease)}
+#qualityOverlay button.active{color:var(--accent);border-color:var(--accent-line)}
+#qualityOverlay button:disabled{cursor:default}
+#mobileModeBadge{color:var(--warn);font-size:11px;letter-spacing:0.06em;padding:0 6px}
+#animProgress{position:absolute;left:0;right:0;bottom:0;display:none;z-index:13;pointer-events:none}
+#animProgress>div{height:3px;background:var(--input)}
+#animBar{height:100%;background:var(--accent);width:0%;transition:width .15s ease-out}
+
+/* header message (replaces the old toast) */
+.hdr-msg-act{position:relative;margin:0;padding:0;border:0;background:none;color:var(--accent);font:600 13px/1.45 var(--lq-font);cursor:pointer}
+.hdr-msg-act::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+.hdr-msg-act:hover{text-decoration:underline;text-underline-offset:3px}
+.hdr-msg-note{margin-top:4px;color:var(--ink-dim);font-size:13px}
+
+/* fallback section rail (desktop) until the liquid rail mounts */
+#sectionsRail .sb-fallback{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0}
+#sectionsRail .sb-fallback button{position:relative;width:44px;min-height:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--ink-faint);background:none;border:0}
+#sectionsRail .sb-fallback button:hover{color:var(--ink)}
+#sectionsRail .sb-fallback button.on{color:var(--accent);background:var(--accent-soft)}
+#sectionsRail .sb-fallback button:focus-visible,.sb-fallback button:focus-visible{outline:2px solid var(--accent-line);outline-offset:2px}
+sub,sup{font-size:11px;line-height:0}
+/* 44px hit areas for header/help links whose drawn box is smaller */
+.fh-brand{position:relative}
+.fh-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+.fh-right .f13ldq-split .f13ldq-caret{min-width:44px}
+.fh-right .f13ldq-split .f13ldq-caret::after{left:50%;right:auto;width:44px;transform:translate(-50%,-50%)}
+body .f13h-tut{position:relative}
+body .f13h-tut::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+/* view menu: the shared block's button text carries a glyph; draw the icon and the label in CSS instead */
+#cw .f13v>button{font-size:0;gap:8px}
+#cw .f13v>button::before{content:'';width:16px;height:16px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z'/%3E%3Ccircle cx='8' cy='8' r='2'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z'/%3E%3Ccircle cx='8' cy='8' r='2'/%3E%3C/svg%3E") center/16px 16px no-repeat}
+#cw .f13v>button::after{content:'View';font:500 13px var(--lq-font)}
+@media (max-width:899px){#sectionsRail{display:none}}
+
+/* help: show button (the engine has no "show control" action) */
+.f13w-show{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border:1px solid var(--hair-strong);border-radius:999px;background:none;color:var(--ink-dim);font:500 11px var(--lq-font);cursor:pointer}
+.f13w-show::after{content:'';position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+.f13w-show:hover{color:var(--accent);border-color:var(--accent-line)}
+.f13w-flash{border-radius:12px;animation:f13wFlash 1.4s var(--ease)}
+@keyframes f13wFlash{0%,60%{box-shadow:0 0 0 2px var(--accent-line),0 0 0 6px var(--accent-soft)}100%{box-shadow:0 0 0 0 transparent}}
 </style>
 </head>
 <body>
-<div id="container">
+<div id="app">
   <div class="f13ld-header">
   <div class="fh-left">
     <a class="fh-brand" href="https://f13ld.app" target="_blank">
@@ -108,11 +361,12 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
       <div class="fh-wordmark"><span style="color:#1D9E75">F</span><span style="color:#c8f542">1</span><span style="color:#c8f542">3</span><span style="color:#1D9E75">LD</span></div>
     </a>
     <div class="fh-divider"></div>
-    <div class="fh-tool-name" style="color:#3D3A30">GRAIN</div>
+    <div class="fh-tool-name">GRAIN</div>
   </div>
   <div class="fh-right">
-    <button class="fh-mesh-btn" onclick="openInMesh()" title="Open in F13LD.mesh — build a watertight, printable 3MF" aria-label="Open in F13LD.mesh">⬡ Mesh</button>
-    <button class="fh-mesh-btn" onclick="openInLab()" title="Open in F13LD.lab — homogenize in the validated FFT solver" aria-label="Open in F13LD.lab">▦ Lab</button>
+    <div id="w-recipe"></div>
+    <button class="fh-mesh-btn" data-native="send" onclick="openInMesh()" title="Open in F13LD.mesh — build a watertight, printable 3MF" aria-label="Open in F13LD.mesh">Mesh</button>
+    <button class="fh-mesh-btn" data-native="send" onclick="openInLab()" title="Open in F13LD.lab — homogenize in the validated FFT solver" aria-label="Open in F13LD.lab">Lab</button>
     <span class="fh-version">v0.11.0</span>
     <div class="fh-icon" style="background:#EDECE8">
       <svg width="18" height="18" viewBox="0 0 40 40">
@@ -125,189 +379,220 @@ input[type=number]{font-size:12px;padding:2px 4px;background:#1a1a2e;border:0.5p
       </svg>
     </div>
   </div>
+  <div class="hdr-msg" id="hdrMsg" role="status" aria-live="polite" hidden></div>
 </div>
-  <div id="cw">
-    <canvas id="glCanvas"></canvas>
-    <canvas id="axisCanvas"></canvas>
-    <div id="clipOverlay" style="position:absolute;bottom:44px;left:10px;display:flex;gap:6px;z-index:13">
-      <button class="clip-pill" id="clipPillX" onclick="onClipPill(1)">X</button>
-      <button class="clip-pill" id="clipPillY" onclick="onClipPill(2)">Y</button>
-      <button class="clip-pill" id="clipPillZ" onclick="onClipPill(3)">Z</button>
-    </div>
-    <div id="status">Ready</div>
-    <div id="animProgress" style="position:absolute;bottom:32px;left:10px;right:10px;display:none;z-index:13;pointer-events:none">
-      <div style="height:3px;background:#1a1a2e;border-radius:2px;overflow:hidden">
-        <div id="animBar" style="height:100%;background:#22d3ee;border-radius:2px;width:0%;transition:width 0.15s ease-out"></div>
-      </div>
-    </div>
-    <div id="indicators">
-      <div class="ind-pill"><div class="ind-dot" id="dotNoise" style="background:#22d3ee"></div><span class="ind-label">field</span><span id="labelNoise" style="color:#22d3ee;font-size:10px">ready</span></div>
-      <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:#22d3ee"></div><span class="ind-label">shader</span><span id="labelShader" style="color:#22d3ee;font-size:10px">ready</span></div>
-    </div>
-    <div id="qualityOverlay">
-      <button id="btnQLow"  onclick="onQualityChange('low')">Low</button>
-      <button id="btnQMed"  class="active" onclick="onQualityChange('medium')">Med</button>
-      <button id="btnQHigh" onclick="onQualityChange('high')">High</button>
-      <button id="btnQUltra" onclick="onQualityChange('ultra')">Ultra</button><span id="mobileModeBadge" style="display:none;color:#f59e0b;font-size:10px;letter-spacing:0.06em;padding-left:6px;align-self:center">· mobile</span>
-    </div>
-  </div>
-  <div id="panel">
-    <hr class="divider">
-    <div style="margin-bottom:8px">
-      <div class="sec-lbl">field type</div>
-      <select id="fieldType" onchange="onFieldTypeChange()">
-        <option value="spinodoid">Spinodoid (VMF wave superposition)</option>
-        <option value="gaussian">Gaussian random field (spectral)</option>
-        <option value="hyperuniform">Hyperuniform kernel field</option>
-        <option value="reactiondiffusion">Reaction-diffusion</option>
-      </select>
-    </div>
-    <div id="grfControls" style="display:none;margin-top:6px">
-      <div class="sc-group"><label>bandwidth &sigma;</label><input type="range" id="grfSigma" min="0.1" max="1.0" step="0.05" value="0.45" oninput="onParamChange(this,'grfSigmaValue')"><span class="sv" id="grfSigmaValue">0.45</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">Low &sigma; &rarr; near-periodic cells &nbsp;&middot;&nbsp; High &sigma; &rarr; broad irregular foam</div>
-    </div>
-    <hr class="divider">
-    <div id="huControls" style="display:none;margin-top:6px">
-      <div class="sc-group"><label>aspect ratio</label><input type="range" id="huAspect" min="1" max="12" step="0.5" value="4" oninput="onParamChange(this,'huAspectValue')"><span class="sv" id="huAspectValue">4.0</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">Kernel length/width &mdash; 1=spherical &nbsp;&middot;&nbsp; 4&ndash;8=beam-like &nbsp;&middot;&nbsp; 10+=rod-like</div>
-      <div class="sc-group"><label>kernel width</label><input type="range" id="huWidth" min="0.01" max="0.15" step="0.005" value="0.04" oninput="onParamChange(this,'huWidthValue')"><span class="sv" id="huWidthValue">0.040</span></div>
-      <div class="sc-group"><label>N kernels</label><input type="range" id="huN" min="10" max="500" step="5" value="30" oninput="onParamChange(this,'huNValue')"><span class="sv" id="huNValue">30</span></div>
-      <div class="sc-group" style="margin-top:4px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px"><input type="checkbox" id="huLockScale" onchange="onHuLockChange()" style="width:auto;margin:0">lock feature scale</label><span class="sv" id="huWidthEff" style="display:none;color:#777"></span></div>
-      <div id="huPerfHint" style="display:none;font-size:10px;color:#f59e0b;margin-top:2px;margin-bottom:6px;line-height:1.5">&#9888; N&gt;200 may be slow to bake — use Section 2D for high-N exploration.</div>
-      <div class="sec-lbl" style="margin-top:8px">kernel shape</div>
-      <div class="sc-group"><label>cross-section</label><input type="range" id="huCross" min="1" max="8" step="0.1" value="2" oninput="onParamChange(this,'huCrossValue')"><span class="sv" id="huCrossValue">2.00</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">1 diamond &nbsp;&middot;&nbsp; 2 round &nbsp;&middot;&nbsp; 6+ square-section</div>
-      <div class="sc-group"><label>edge sharpness</label><input type="range" id="huSharp" min="1" max="5" step="0.1" value="1" oninput="onParamChange(this,'huSharpValue')"><span class="sv" id="huSharpValue">1.00</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">1 soft taper &nbsp;&middot;&nbsp; higher = flat-top, uniform thickness</div>
-      <div class="sc-group"><label>union blend</label><input type="range" id="huBlend" min="0" max="1" step="0.02" value="0" oninput="onParamChange(this,'huBlendValue')"><span class="sv" id="huBlendValue">1.00</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">1.0 merged &nbsp;&middot;&nbsp; 8.0 distinct struts</div>
-      <div class="sc-group"><label>transverse aspect</label><input type="range" id="huEll" min="-1" max="1" step="0.05" value="0" oninput="onParamChange(this,'huEllValue')"><span class="sv" id="huEllValue">round</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">0 round &nbsp;&middot;&nbsp; either side = ribbon/plate cross-section</div>
-    </div>
-    <div id="rdControls" style="display:none;margin-top:6px">
-      <div class="sc-group"><label>system</label>
-        <select id="rdSystem" onchange="onRDSystemChange()" style="flex:1">
-          <option value="grayscott">Gray-Scott — bicontinuous labyrinth</option>
-          <option value="brusselator">Brusselator — lamellar / cortical</option>
-          <option value="schnakenberg">Schnakenberg — closed-cell spheres</option>
-        </select>
-      </div>
-      <div id="rdFallbackBadge" style="display:none;font-size:10px;color:#f59e0b;margin-top:-4px;margin-bottom:8px;line-height:1.5">&#9888; Brusselator / Schnakenberg require desktop browser &mdash; falling back to Gray-Scott.</div>
-      <div class="sc-group"><label>preset</label>
-        <select id="rdPreset" onchange="onRDPresetChange()" style="flex:1">
-          <option value="micro">Micro — very fine, high surface area</option>
-          <option value="fine">Fine — small trabecular features</option>
-          <option value="reticulate">Reticulate — dense interconnected network</option>
-          <option value="trabecular">Trabecular — classic spongy bone</option>
-          <option value="lamellar">Lamellar — plate-like cortical character</option>
-          <option value="cancellous">Cancellous — open marrow spaces</option>
-          <option value="custom">Custom</option>
-        </select>
-      </div>
-      <div class="sc-group"><label id="rdDuLbl">feature scale</label><input type="range" id="rdDu" min="0.08" max="0.20" step="0.01" value="0.14" oninput="onRDParamChange(this,'rdDuValue')"><span class="sv" id="rdDuValue">0.14</span></div>
-      <div class="sc-group" id="rdDvRow" style="display:none"><label>inhibitor D<sub>v</sub></label><input type="range" id="rdDv" min="1" max="60" step="0.5" value="16" oninput="onRDParamChange(this,'rdDvValue')"><span class="sv" id="rdDvValue">16.0</span></div>
-      <div class="sc-group"><label id="rdFLbl">feed rate F</label><input type="range" id="rdF" min="0.014" max="0.044" step="0.001" value="0.030" oninput="onRDParamChange(this,'rdFValue')"><span class="sv" id="rdFValue">0.030</span></div>
-      <div class="sc-group"><label id="rdKLbl">kill rate k</label><input type="range" id="rdK" min="0.046" max="0.065" step="0.001" value="0.057" oninput="onRDParamChange(this,'rdKValue')"><span class="sv" id="rdKValue">0.057</span></div>
-      <div class="sc-group"><label>tile factor</label><input type="range" id="rdTile" min="1" max="4" step="1" value="2" oninput="onRDParamChange(this,'rdTileValue')"><span class="sv" id="rdTileValue">2</span></div>
-      <div style="font-size:10px;color:#f59e0b;margin-top:-8px;margin-bottom:10px;line-height:1.5">&#9888; Exploring outside presets can produce surprising results &mdash; but may also produce nothing at all.</div>
-      <button id="rdRunBtn" onclick="onRunRD()">&#9654; Simulate</button>
-      <button id="rdRollBtn" onclick="onRollAndSimulate()">&#127922; Roll &amp; simulate</button>
-      <div class="sc-group" style="margin-top:6px"><label>sim steps</label><input type="range" id="rdSteps" min="1000" max="10000" step="500" value="3000" oninput="onRDStepsChange(this)"><span class="sv" id="rdStepsValue">3000</span></div>
-      <div style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:10px;line-height:1.5">each +500 steps &asymp; +0.5s &nbsp;&middot;&nbsp; early steps = immature topology &nbsp;&middot;&nbsp; late steps = equilibrated structure</div>
-    </div>
-    <div id="dirBiasSection">
-    <div class="sec-lbl">directional bias</div>
-    <div class="surf-controls" style="margin-bottom:6px">
-      <div class="sc-group" style="margin-bottom:0">
-        <label>mode</label>
-        <div class="mode-strip">
-          <button class="mode-btn active" id="btnDirSingle" onclick="onDirModeChange('single')">Single</button>
-          <button class="mode-btn" id="btnDirOrtho" onclick="onDirModeChange('ortho')">Orthotropic</button>
-          <button class="mode-btn" id="btnDirIso" onclick="onDirModeChange('iso')">Isotropic</button>
+
+  <div id="main">
+    <!-- Viewer pane -->
+    <section id="viewPane" aria-label="3D view">
+      <div id="cw">
+        <canvas id="glCanvas"></canvas>
+        <canvas id="axisCanvas"></canvas>
+        <div id="qualityOverlay">
+          <button id="btnQLow"  onclick="onQualityChange('low')">Low</button>
+          <button id="btnQMed"  class="active" onclick="onQualityChange('medium')">Med</button>
+          <button id="btnQHigh" onclick="onQualityChange('high')">High</button>
+          <button id="btnQUltra" onclick="onQualityChange('ultra')">Ultra</button><span id="mobileModeBadge" style="display:none">· mobile</span>
         </div>
-      </div>
-    </div>
-    <div id="singleDirControls">
-      <div class="sc-group">
-        <label>dir &theta; (polar)</label>
-        <input type="range" id="dirTheta" min="0" max="180" step="1" value="0" oninput="onParamChange(this,'dirThetaValue')">
-        <span class="sv" id="dirThetaValue">0&deg;</span>
-      </div>
-      <div class="sc-group">
-        <label>dir &phi; (azimuth)</label>
-        <input type="range" id="dirPhi" min="0" max="360" step="1" value="0" oninput="onParamChange(this,'dirPhiValue')">
-        <span class="sv" id="dirPhiValue">0&deg;</span>
-      </div>
-    </div>
-    <div id="orthoDirControls" style="display:none">
-      <div style="font-size:11px;color:#555;margin-bottom:6px;line-height:1.5">Three principal axes X/Y/Z with independent concentration weights.</div>
-      <div class="sc-group"><label>weight X</label><input type="range" id="wX" min="0" max="1" step="0.05" value="0.33" oninput="onParamChange(this,'wXValue')"><span class="sv" id="wXValue">0.33</span></div>
-      <div class="sc-group"><label>weight Y</label><input type="range" id="wY" min="0" max="1" step="0.05" value="0.33" oninput="onParamChange(this,'wYValue')"><span class="sv" id="wYValue">0.33</span></div>
-      <div class="sc-group"><label>weight Z</label><input type="range" id="wZ" min="0" max="1" step="0.05" value="0.34" oninput="onParamChange(this,'wZValue')"><span class="sv" id="wZValue">0.34</span></div>
-    </div>
-    <div id="kappaRow" class="sc-group"><label>concentration &kappa;</label><input type="range" id="kappa" min="0" max="20" step="0.5" value="6" oninput="onParamChange(this,'kappaValue')"><span class="sv" id="kappaValue">6.0</span></div>
-    <div id="kappaHint" style="font-size:10px;color:#555;margin-top:-16px;margin-bottom:8px;line-height:1.5">&kappa;=0 isotropic foam &nbsp;&middot;&nbsp; &kappa;&asymp;4&ndash;8 trabecular &nbsp;&middot;&nbsp; &kappa;&ge;12 aligned rods</div>
-    <div id="nWavesRow" class="sc-group"><label>N waves</label><input type="range" id="nWaves" min="8" max="128" step="4" value="48" oninput="onParamChange(this,'nWavesValue')"><span class="sv" id="nWavesValue">48</span></div>
-    <div id="frequencyRow" class="sc-group"><label>frequency</label><input type="range" id="frequency" min="0.01" max="1.0" step="0.01" value="0.45" oninput="onParamChange(this,'freqValue')"><span class="sv" id="freqValue">0.45</span></div>
-    <div class="sc-group"><label>RNG seed</label><input type="range" id="rngSeed" min="1" max="999" step="1" value="42" oninput="onParamChange(this,'rngSeedValue')"><span class="sv" id="rngSeedValue">42</span></div>
-    </div>
-    <hr class="divider">
-    <div class="sec-lbl">scaffold geometry</div>
-    <div class="surf-controls" style="margin-bottom:18px">
-      <div class="sc-group" style="margin-bottom:0">
-        <label>topology</label>
-        <div class="mode-strip">
-          <button class="mode-btn active" id="btnSheet" onclick="onTopologyToggle('sheet')">Sheet</button>
-          <button class="mode-btn" id="btnHalf" onclick="onTopologyToggle('half')">Half-solid</button>
-          <button class="mode-btn" id="btnSolid" onclick="onTopologyToggle('solid')">Solid</button>
-        </div>
-      </div>
-      <div id="flipRow" style="display:none;margin-top:8px;width:100%">
-        <button id="flipBtn" onclick="onFlipHalf()">
-          <span id="flipGlyph">&#9680;</span>
-          <span>flip side</span>
-        </button>
-      </div>
-    </div>
-    <div class="sc-group"><label>center</label><input type="range" id="isoLevel" min="-1" max="1" step="0.01" value="0" oninput="onParamChange(this,'isoValue')"><span class="sv" id="isoValue">0.00</span></div>
-    <div class="sc-group" id="thicknessRow"><label>half-width</label><input type="range" id="thickness" min="0.01" max="0.5" step="0.01" value="0.15" oninput="onParamChange(this,'thicknessValue')"><span class="sv" id="thicknessValue">0.15</span></div>
-    <div id="smoothingRow" class="sc-group"><label>smoothing</label><input type="range" id="smoothing" min="0" max="1" step="0.01" value="0" oninput="onParamChange(this,'smoothingValue')"><span class="sv" id="smoothingValue">0.00</span></div>
-    <hr class="divider">
-    <div class="sec-lbl">homogenization (MIL-HS)</div>
-    <div class="homo-controls">
-      <label>grid <select id="homoGrid" style="width:70px"><option value="32">32&#179;</option><option value="48" selected>48&#179;</option><option value="64">64&#179;</option></select></label>
-      <label>E_s (GPa) <input type="number" id="homoEs" value="100" min="1" max="1000" step="10"></label>
-      <label>&#957; <input type="number" id="homoNu" value="0.3" min="0" max="0.49" step="0.01"></label>
-      <button id="runHomoBtn" onclick="onRunHomogenization()">Run homogenization</button>
-    </div>
-    <div id="homoStatus" style="font-size:11px;color:#555;margin-bottom:7px;min-height:15px"></div>
-    <div id="homoResults" style="display:none;margin-bottom:8px">
-      <div id="homoMetrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-        <div style="background:#0e0e1a;border:0.5px solid #2a2a3a;border-radius:8px;padding:7px 8px">
-          <div style="font-size:10px;color:#555;margin-bottom:5px">directional stiffness</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-            <div style="font-size:11px;color:#555">A =</div>
-            <div id="zener-val" style="font-size:15px;font-weight:500;color:#888">&#8212;</div>
-            <div id="zener-label" style="font-size:10px;color:#555;flex:1;text-align:right">&#8212;</div>
+        <div class="vw-bl">
+          <div id="indicators">
+            <div class="ind-pill"><div class="ind-dot" id="dotNoise" style="background:var(--accent)"></div><span class="ind-label">field</span><span id="labelNoise" style="color:var(--accent)">ready</span></div>
+            <div class="ind-pill"><div class="ind-dot" id="dotShader" style="background:var(--accent)"></div><span class="ind-label">shader</span><span id="labelShader" style="color:var(--accent)">ready</span></div>
           </div>
-          <div style="position:relative;height:5px;background:#1a1a2a;border-radius:3px;margin-bottom:3px">
-            <div style="position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:3px;background:linear-gradient(90deg,#e879f9 0%,#555 40%,#555 60%,#22d3ee 100%);opacity:0.4"></div>
-            <div style="position:absolute;left:40%;top:-1px;width:1px;height:7px;background:#555;opacity:0.8"></div>
-            <div id="zener-marker" style="position:absolute;top:-2px;width:2px;height:9px;background:#e0e0ff;border-radius:1px;left:40%;transition:left 0.4s"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:#555"><span>axial</span><span>A=1</span><span>diagonal</span></div>
-        </div>
-        <div style="background:#0e0e1a;border:0.5px solid #2a2a3a;border-radius:8px;padding:6px">
-          <div style="font-size:10px;color:#555;margin-bottom:4px">stiffness ellipsoid</div>
-          <div id="ellcv-wrap" style="position:relative;width:100%;padding-bottom:100%">
-            <canvas id="ellcv" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:4px;display:block"></canvas>
+          <div id="status">Ready</div>
+          <div id="w-clip"></div>
+          <div id="clipOverlay">
+            <span class="clip-lbl">clip</span>
+            <button class="clip-pill" id="clipPillX" data-native="clip" onclick="onClipPill(1)" aria-label="Clip plane X">X</button>
+            <button class="clip-pill" id="clipPillY" data-native="clip" onclick="onClipPill(2)" aria-label="Clip plane Y">Y</button>
+            <button class="clip-pill" id="clipPillZ" data-native="clip" onclick="onClipPill(3)" aria-label="Clip plane Z">Z</button>
           </div>
         </div>
+        <div id="animProgress"><div><div id="animBar"></div></div></div>
       </div>
-      <div style="font-size:10px;color:#444;line-height:1.5">&#9888; Statistical homogeneity assumed. Higher N waves and frequency improve convergence.</div>
-    </div>
-    <button id="exportBtn" onclick="onExportJSON()">Export JSON</button>
+    </section>
+
+    <!-- Control pane: desktop column / phone bottom sheet -->
+    <aside id="ctrlPane" aria-label="Controls">
+      <button id="sheetHandle" type="button" aria-label="Drag to resize the controls"></button>
+      <nav id="sectionsRail" aria-label="Sections">
+        <div class="sb-fallback">
+          <button type="button" data-section="field" class="on" title="Field" aria-label="Field"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5c2-2.4 3.6-2.4 6 0s4 2.4 6 0M2 10.5c2-2.4 3.6-2.4 6 0s4 2.4 6 0"/></svg></button>
+          <button type="button" data-section="direction" title="Direction" aria-label="Direction"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13L13 3M8 3h5v5"/></svg></button>
+          <button type="button" data-section="geometry" title="Geometry" aria-label="Geometry"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8l5.6 3.2v6L8 14.2 2.4 11V5zM2.4 5L8 8.2 13.6 5M8 8.2v6"/></svg></button>
+          <button type="button" data-section="analyze" title="Analyze" aria-label="Analyze"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 13.5h11M4.5 13.5V8M8 13.5V3M11.5 13.5V6"/></svg></button>
+        </div>
+      </nav>
+      <div id="ctrlScroll">
+
+        <section class="sec on" id="sec-field" data-section="field">
+          <h2 class="sec-h"><span class="sec-n">01</span>Field</h2>
+
+          <div class="grp">
+            <div class="sub-h">field type</div>
+            <select id="fieldType" class="fld" onchange="onFieldTypeChange()" style="width:100%">
+              <option value="spinodoid">Spinodoid (VMF wave superposition)</option>
+              <option value="gaussian">Gaussian random field (spectral)</option>
+              <option value="hyperuniform">Hyperuniform kernel field</option>
+              <option value="reactiondiffusion">Reaction-diffusion</option>
+            </select>
+            <div id="w-fieldType"></div>
+            <div class="sc-group sl" id="grp-rngSeed" data-w-slider="rngSeed" style="margin-top:8px"><label for="rngSeed">RNG seed</label><span class="sv" id="rngSeedValue">42</span><input type="range" id="rngSeed" min="1" max="999" step="1" value="42" oninput="onParamChange(this,'rngSeedValue')"></div>
+          </div>
+
+          <div id="grfControls" class="grp" style="display:none">
+            <div class="sub-h">gaussian field</div>
+            <div class="sc-group sl" id="grp-grfSigma" data-w-slider="grfSigma"><label for="grfSigma">bandwidth &sigma;</label><span class="sv" id="grfSigmaValue">0.45</span><input type="range" id="grfSigma" min="0.1" max="1.0" step="0.05" value="0.45" oninput="onParamChange(this,'grfSigmaValue')"><div class="row-extra hint">Low &sigma; &rarr; near-periodic cells &middot; High &sigma; &rarr; broad irregular foam</div></div>
+          </div>
+
+          <div id="huControls" style="display:none">
+          <div class="grp">
+            <div class="sub-h">kernels</div>
+            <div class="sc-group sl" id="grp-huAspect" data-w-slider="huAspect"><label for="huAspect">aspect ratio</label><span class="sv" id="huAspectValue">4.0</span><input type="range" id="huAspect" min="1" max="12" step="0.5" value="4" oninput="onParamChange(this,'huAspectValue')"><div class="row-extra hint">Kernel length/width &mdash; 1 spherical &middot; 4&ndash;8 beam-like &middot; 10+ rod-like</div></div>
+            <div class="sc-group sl" id="grp-huWidth" data-w-slider="huWidth"><label for="huWidth">kernel width</label><span class="sv" id="huWidthValue">0.040</span><input type="range" id="huWidth" min="0.01" max="0.15" step="0.005" value="0.04" oninput="onParamChange(this,'huWidthValue')"></div>
+            <div class="sc-group sl" id="grp-huN" data-w-slider="huN"><label for="huN">N kernels</label><span class="sv" id="huNValue">30</span><input type="range" id="huN" min="10" max="500" step="5" value="30" oninput="onParamChange(this,'huNValue')"></div>
+            <div class="sc-group" id="grp-huLock"><label class="chk"><input type="checkbox" id="huLockScale" onchange="onHuLockChange()"><span>lock feature scale</span></label><span class="sv" id="huWidthEff" style="display:none"></span><div id="w-huLock"></div></div>
+            <div id="huPerfHint" class="hint warn" style="display:none"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2l6.2 11H1.8zM8 6.6v3.2M8 11.8v.1"/></svg>N&gt;200 may be slow to bake.</div>
+          </div>
+          <div class="grp">
+            <div class="sub-h">kernel shape</div>
+            <div class="sc-group sl" id="grp-huCross" data-w-slider="huCross"><label for="huCross">cross-section</label><span class="sv" id="huCrossValue">2.00</span><input type="range" id="huCross" min="1" max="8" step="0.1" value="2" oninput="onParamChange(this,'huCrossValue')"><div class="row-extra hint">1 diamond &middot; 2 round &middot; 6+ square-section</div></div>
+            <div class="sc-group sl" id="grp-huSharp" data-w-slider="huSharp"><label for="huSharp">edge sharpness</label><span class="sv" id="huSharpValue">1.00</span><input type="range" id="huSharp" min="1" max="5" step="0.1" value="1" oninput="onParamChange(this,'huSharpValue')"><div class="row-extra hint">1 soft taper &middot; higher = flat-top, uniform thickness</div></div>
+            <div class="sc-group sl" id="grp-huBlend" data-w-slider="huBlend"><label for="huBlend">union blend</label><span class="sv" id="huBlendValue">1.00</span><input type="range" id="huBlend" min="0" max="1" step="0.02" value="0" oninput="onParamChange(this,'huBlendValue')"><div class="row-extra hint">1.0 merged &middot; 8.0 distinct struts</div></div>
+            <div class="sc-group sl" id="grp-huEll" data-w-slider="huEll"><label for="huEll">transverse aspect</label><span class="sv" id="huEllValue">round</span><input type="range" id="huEll" min="-1" max="1" step="0.05" value="0" oninput="onParamChange(this,'huEllValue')"><div class="row-extra hint">0 round &middot; either side = ribbon/plate cross-section</div></div>
+          </div>
+          </div>
+
+          <div id="rdControls" class="grp" style="display:none">
+            <div class="sub-h">reaction-diffusion</div>
+            <div class="sc-group stack" id="grp-rdSystem"><label for="rdSystem">system</label>
+              <select id="rdSystem" class="fld" onchange="onRDSystemChange()">
+                <option value="grayscott">Gray-Scott — bicontinuous labyrinth</option>
+                <option value="brusselator">Brusselator — lamellar / cortical</option>
+                <option value="schnakenberg">Schnakenberg — closed-cell spheres</option>
+              </select>
+              <div id="w-rdSystem"></div>
+            </div>
+            <div id="rdFallbackBadge" class="hint warn" style="display:none"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2l6.2 11H1.8zM8 6.6v3.2M8 11.8v.1"/></svg>Brusselator / Schnakenberg need a desktop browser; using Gray-Scott.</div>
+            <div class="sc-group stack" id="grp-rdPreset"><label for="rdPreset">preset</label>
+              <select id="rdPreset" class="fld" onchange="onRDPresetChange()">
+                <option value="micro">Micro — very fine, high surface area</option>
+                <option value="fine">Fine — small trabecular features</option>
+                <option value="reticulate">Reticulate — dense interconnected network</option>
+                <option value="trabecular">Trabecular — classic spongy bone</option>
+                <option value="lamellar">Lamellar — plate-like cortical character</option>
+                <option value="cancellous">Cancellous — open marrow spaces</option>
+                <option value="custom">Custom</option>
+              </select>
+              <div id="w-rdPreset"></div>
+            </div>
+            <div class="sub-h">parameters</div>
+            <div class="sc-group sl" id="grp-rdDu" data-w-slider="rdDu"><label id="rdDuLbl" for="rdDu">feature scale</label><span class="sv" id="rdDuValue">0.14</span><input type="range" id="rdDu" min="0.08" max="0.20" step="0.01" value="0.14" oninput="onRDParamChange(this,'rdDuValue')"></div>
+            <div class="sc-group sl" id="rdDvRow" data-w-slider="rdDv" style="display:none"><label for="rdDv">inhibitor D<sub>v</sub></label><span class="sv" id="rdDvValue">16.0</span><input type="range" id="rdDv" min="1" max="60" step="0.5" value="16" oninput="onRDParamChange(this,'rdDvValue')"></div>
+            <div class="sc-group sl" id="grp-rdF" data-w-slider="rdF"><label id="rdFLbl" for="rdF">feed rate F</label><span class="sv" id="rdFValue">0.030</span><input type="range" id="rdF" min="0.014" max="0.044" step="0.001" value="0.030" oninput="onRDParamChange(this,'rdFValue')"></div>
+            <div class="sc-group sl" id="grp-rdK" data-w-slider="rdK"><label id="rdKLbl" for="rdK">kill rate k</label><span class="sv" id="rdKValue">0.057</span><input type="range" id="rdK" min="0.046" max="0.065" step="0.001" value="0.057" oninput="onRDParamChange(this,'rdKValue')"></div>
+            <div class="sc-group sl" id="grp-rdTile" data-w-slider="rdTile"><label for="rdTile">tile factor</label><span class="sv" id="rdTileValue">2</span><input type="range" id="rdTile" min="1" max="4" step="1" value="2" oninput="onRDParamChange(this,'rdTileValue')"></div>
+            <div class="hint warn"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2l6.2 11H1.8zM8 6.6v3.2M8 11.8v.1"/></svg>Outside the presets the result can be surprising, or empty.</div>
+            <div class="sub-h">run</div>
+            <div class="sc-group sl" id="grp-rdSteps" data-w-slider="rdSteps"><label for="rdSteps">sim steps</label><span class="sv" id="rdStepsValue">3000</span><input type="range" id="rdSteps" min="1000" max="10000" step="500" value="3000" oninput="onRDStepsChange(this)"><div class="row-extra hint">+500 steps &asymp; +0.5 s &middot; early = immature topology &middot; late = equilibrated</div></div>
+            <div id="w-run"></div>
+            <button id="rdRunBtn" class="btn primary run-row" data-native="run" onclick="onRunRD()"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3l8 5-8 5z"/></svg><span id="rdRunLbl">Simulate</span></button>
+            <button id="rdRollBtn" class="btn" onclick="onRollAndSimulate()"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.8-4.1M13.5 2.5v3h-3"/></svg><span id="rdRollLbl">Roll &amp; simulate</span></button>
+          </div>
+        </section>
+
+        <section class="sec" id="sec-direction" data-section="direction">
+          <h2 class="sec-h"><span class="sec-n">02</span>Direction</h2>
+          <div class="dir-note" id="dirNote" hidden>Reaction-diffusion fields have no direction bias. These controls are off.</div>
+          <div id="dirBiasSection">
+            <div class="sc-group stack" id="grp-dirMode">
+              <label>mode</label>
+              <div class="mode-strip" data-native="mode">
+                <button class="mode-btn active" id="btnDirSingle" onclick="onDirModeChange('single')">Single</button>
+                <button class="mode-btn" id="btnDirOrtho" onclick="onDirModeChange('ortho')">Orthotropic</button>
+                <button class="mode-btn" id="btnDirIso" onclick="onDirModeChange('iso')">Isotropic</button>
+              </div>
+              <div id="w-dirMode"></div>
+            </div>
+            <div id="singleDirControls">
+              <div class="sc-group sl" id="grp-dirTheta" data-w-slider="dirTheta"><label for="dirTheta">dir &theta; (polar)</label><span class="sv" id="dirThetaValue">0&deg;</span><input type="range" id="dirTheta" min="0" max="180" step="1" value="0" oninput="onParamChange(this,'dirThetaValue')"></div>
+              <div class="sc-group sl" id="grp-dirPhi" data-w-slider="dirPhi"><label for="dirPhi">dir &phi; (azimuth)</label><span class="sv" id="dirPhiValue">0&deg;</span><input type="range" id="dirPhi" min="0" max="360" step="1" value="0" oninput="onParamChange(this,'dirPhiValue')"></div>
+            </div>
+            <div id="orthoDirControls" style="display:none">
+              <div class="hint">Three principal axes X/Y/Z with independent concentration weights.</div>
+              <div class="sc-group sl" id="grp-wX" data-w-slider="wX"><label for="wX">weight X</label><span class="sv" id="wXValue">0.33</span><input type="range" id="wX" min="0" max="1" step="0.05" value="0.33" oninput="onParamChange(this,'wXValue')"></div>
+              <div class="sc-group sl" id="grp-wY" data-w-slider="wY"><label for="wY">weight Y</label><span class="sv" id="wYValue">0.33</span><input type="range" id="wY" min="0" max="1" step="0.05" value="0.33" oninput="onParamChange(this,'wYValue')"></div>
+              <div class="sc-group sl" id="grp-wZ" data-w-slider="wZ"><label for="wZ">weight Z</label><span class="sv" id="wZValue">0.34</span><input type="range" id="wZ" min="0" max="1" step="0.05" value="0.34" oninput="onParamChange(this,'wZValue')"></div>
+            </div>
+            <div id="kappaRow" class="sc-group sl" data-w-slider="kappa"><label for="kappa">concentration &kappa;</label><span class="sv" id="kappaValue">6.0</span><input type="range" id="kappa" min="0" max="20" step="0.5" value="6" oninput="onParamChange(this,'kappaValue')"><div id="kappaHint" class="row-extra hint">&kappa;=0 isotropic foam &middot; &kappa;&asymp;4&ndash;8 trabecular &middot; &kappa;&ge;12 aligned rods</div></div>
+            <div id="nWavesRow" class="sc-group sl" data-w-slider="nWaves"><label for="nWaves">N waves</label><span class="sv" id="nWavesValue">48</span><input type="range" id="nWaves" min="8" max="128" step="4" value="48" oninput="onParamChange(this,'nWavesValue')"></div>
+            <div id="frequencyRow" class="sc-group sl" data-w-slider="frequency"><label for="frequency">frequency</label><span class="sv" id="freqValue">0.45</span><input type="range" id="frequency" min="0.01" max="1.0" step="0.01" value="0.45" oninput="onParamChange(this,'freqValue')"></div>
+          </div>
+        </section>
+
+        <section class="sec" id="sec-geometry" data-section="geometry">
+          <h2 class="sec-h"><span class="sec-n">03</span>Geometry</h2>
+          <div class="sc-group stack" id="grp-topology">
+            <label>topology</label>
+            <div class="mode-strip" data-native="topology">
+              <button class="mode-btn active" id="btnSheet" onclick="onTopologyToggle('sheet')">Sheet</button>
+              <button class="mode-btn" id="btnHalf" onclick="onTopologyToggle('half')">Half-solid</button>
+              <button class="mode-btn" id="btnSolid" onclick="onTopologyToggle('solid')">Solid</button>
+            </div>
+            <div id="w-topology"></div>
+          </div>
+          <div id="flipRow" style="display:none">
+            <button id="flipBtn" class="btn" data-native="flip" onclick="onFlipHalf()"><span id="flipGlyph"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none"/></svg></span><span>flip side</span></button>
+            <div id="w-flip"></div>
+          </div>
+          <div class="sc-group sl" id="grp-isoLevel" data-w-slider="isoLevel"><label for="isoLevel">center</label><span class="sv" id="isoValue">0.00</span><input type="range" id="isoLevel" min="-1" max="1" step="0.01" value="0" oninput="onParamChange(this,'isoValue')"></div>
+          <div class="sc-group sl" id="thicknessRow" data-w-slider="thickness"><label for="thickness">half-width</label><span class="sv" id="thicknessValue">0.15</span><input type="range" id="thickness" min="0.01" max="0.5" step="0.01" value="0.15" oninput="onParamChange(this,'thicknessValue')"></div>
+          <!-- smoothing has no effect on the output; no control. Kept at its default for the export key. -->
+          <input type="hidden" id="smoothing" value="0">
+        </section>
+
+        <section class="sec" id="sec-analyze" data-section="analyze">
+          <h2 class="sec-h"><span class="sec-n">04</span>Analyze</h2>
+          <div class="sub-h">homogenization (MIL-HS)</div>
+          <div class="hc-row">
+            <div class="sc-group stack" id="grp-homoGrid"><label for="homoGrid">grid</label><select id="homoGrid" class="fld"><option value="32">32&#179;</option><option value="48" selected>48&#179;</option><option value="64">64&#179;</option></select><div id="w-homoGrid"></div></div>
+            <div class="sc-group stack"><label for="homoEs">E_s (GPa)</label><input type="number" id="homoEs" class="fld-num" value="100" min="1" max="1000" step="10"></div>
+            <div class="sc-group stack"><label for="homoNu">&#957;</label><input type="number" id="homoNu" class="fld-num" value="0.3" min="0" max="0.49" step="0.01"></div>
+          </div>
+          <div id="w-homoRun"></div>
+          <button id="runHomoBtn" class="btn primary" data-native="run" onclick="onRunHomogenization()">Run homogenization</button>
+          <div id="homoStatus" class="hint"></div>
+          <div id="homoResults" style="display:none">
+            <div id="homoMetrics"></div>
+            <div class="rcard">
+              <div class="rcard-t">directional stiffness</div>
+              <div class="zener-top">
+                <div class="zl">A =</div>
+                <div id="zener-val">&#8212;</div>
+                <div id="zener-label">&#8212;</div>
+              </div>
+              <div class="zbar"><div class="zbar-g"></div><div class="zbar-1"></div><div id="zener-marker"></div></div>
+              <div class="zscale"><span>axial</span><span>A=1</span><span>diagonal</span></div>
+            </div>
+            <div class="rcard">
+              <div class="rcard-t">stiffness ellipsoid</div>
+              <div id="ellcv-wrap"><canvas id="ellcv"></canvas></div>
+            </div>
+            <div class="hint warn"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2l6.2 11H1.8zM8 6.6v3.2M8 11.8v.1"/></svg>Statistical homogeneity assumed. Higher N waves and frequency improve convergence.</div>
+          </div>
+          <button id="exportBtn" class="btn" data-native="send" onclick="onExportJSON()">Export JSON</button>
+        </section>
+
+      </div>
+      <nav id="sectionsBar" aria-label="Sections">
+        <div class="sb-fallback">
+          <button type="button" data-section="field" class="on">Field</button>
+          <button type="button" data-section="direction">Direction</button>
+          <button type="button" data-section="geometry">Geometry</button>
+          <button type="button" data-section="analyze">Analyze</button>
+        </div>
+      </nav>
+    </aside>
   </div>
 </div>
 <script>
@@ -476,7 +761,7 @@ var GRAIN_WORKER_SRC=[
 var clipState={axis:0,pos:0.0,side:1};
 var rdGrid=null,rdGridN=0;
 var topoMode='sheet',halfInvert=false,dirMode='single',debounceTimer=null,lastHomogResult=null,currentQuality='medium';
-var IND_READY='#22d3ee',IND_WORKING='#f59e0b';
+var IND_READY='var(--accent)',IND_WORKING='var(--warn)';
 
 function setNoiseStatus(w,msg){var d=document.getElementById('dotNoise'),l=document.getElementById('labelNoise');d.style.background=w?IND_WORKING:IND_READY;l.style.color=w?IND_WORKING:IND_READY;l.textContent=w?(msg||'computing'):'ready';}
 function setShaderStatus(w){var d=document.getElementById('dotShader'),l=document.getElementById('labelShader');d.style.background=w?IND_WORKING:IND_READY;l.style.color=w?IND_WORKING:IND_READY;l.textContent=w?'compiling':'ready';}
@@ -812,7 +1097,7 @@ function Raymarcher(canvas){
   this._pendingProg=null;this._pendingParams=null;this._compiling=false;
   this.prog=null;this.quadBuf=null;
   this.uRes=null;this.uRot=null;this.uZoom=null;this.uThick=null;this.uIso=null;this.uInvertSign=null;this.uTopoMode=null;this.uTile=null;
-  this.camZoom=16;this.autoRot=true;this.running=false;this._loopRunning=false;
+  this.camZoom=19;this.autoRot=false;this.running=false;this._loopRunning=false;
   this._dirty=true;this.currentParams=null;this._rebuildPending=false;
   this.fieldTex=null;this.lipschitz=1.0;this.bakeN=32;this.worker=null;this._bakeDebounce=null;this.uNrmStep=null;this.uHalfInvert=null;
   this.rotMat=this._mat3Mul(this._rotAA(0,1,0,0.7),this._rotAA(1,0,0,0.5));
@@ -953,7 +1238,7 @@ function sRotAxisAngle(ax,ay,az,angle){var c=Math.cos(angle),s=Math.sin(angle),t
 function sOrthonorm(m){function dot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];}function scl(a,s){return[a[0]*s,a[1]*s,a[2]*s];}function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]];}function nrm(a){var l=Math.sqrt(dot(a,a))||1;return[a[0]/l,a[1]/l,a[2]/l];}var x=[m[0],m[1],m[2]],y=[m[3],m[4],m[5]],z=[m[6],m[7],m[8]];x=nrm(x);y=nrm(sub(y,scl(x,dot(y,x))));z=nrm(sub(sub(z,scl(x,dot(z,x))),scl(y,dot(z,y))));return[x[0],x[1],x[2],y[0],y[1],y[2],z[0],z[1],z[2]];}
 var sgl=null,sprog=null,squadBuf=null,suRes,suRot,suZoom,sRotMat=[1,0,0,0,1,0,0,0,1],sInitialized=false,sZoom=2.6;
 var SVERT='#version 300 es\nin vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}';
-function buildStiffFrag(Ex,Ey,Ez,Gxy,nu){var E=(Ex+Ey+Ez)/3,S11=1/E,S12=-nu/E,S44=1/Gxy,d=(S11-S12)*(S11+2*S12),C11=(S11+S12)/d,C12=-S12/d,C44=1/S44,A=2*C44/(C11-C12),Gamma=2*S11-2*S12-S44,E100=1/S11,E111=Math.abs(S11-Gamma/3)>1e-9?1/(S11-Gamma/3):E100,Emax=Math.max(E100,E111,Ex,Ey,Ez)*1.08;var zv=document.getElementById('zener-val'),zm=document.getElementById('zener-marker'),zl=document.getElementById('zener-label');if(zv)zv.textContent=A.toFixed(3);if(zm){var Aclamp=Math.min(Math.max(A,0.3),2.5);zm.style.left=((Aclamp-0.3)/(2.5-0.3)*100).toFixed(1)+'%';}var Acol=A<0.8?'#e879f9':A<1.2?'#888':A<2.0?'#22d3ee':'#aaff00',Albl=A<0.7?'strongly axial':A<0.9?'axial dominant':A<1.1?'near-isotropic':A<1.5?'diagonal dominant':'strongly diagonal';if(zv)zv.style.color=Acol;if(zl){zl.textContent=Albl;zl.style.color=Acol;}function f(v){var s=v.toFixed(8);return s;}return'#version 300 es\nprecision highp float;\nout vec4 fragColor;\nuniform vec2 res;uniform mat3 rot;uniform float zoom;\nfloat S11='+f(S11)+';float Gamma='+f(Gamma)+';float Emax='+f(Emax)+';\nfloat Edir(vec3 n){float w=n.x*n.x*n.y*n.y+n.y*n.y*n.z*n.z+n.z*n.z*n.x*n.x;return 1.0/max(abs(S11-(Gamma*0.5)*w),1e-6);}\nfloat implicit(vec3 P){float r=length(P);if(r<0.001)return -1.0;return r-Edir(P/r)/Emax;}\nvec3 nrm(vec3 P){float e=0.004;return normalize(vec3(implicit(P+vec3(e,0.0,0.0))-implicit(P-vec3(e,0.0,0.0)),implicit(P+vec3(0.0,e,0.0))-implicit(P-vec3(0.0,e,0.0)),implicit(P+vec3(0.0,0.0,e))-implicit(P-vec3(0.0,0.0,e))));}\nvec3 palette(float t){vec3 a=vec3(0.5,0.5,0.5),b=vec3(0.5,0.5,0.5),c=vec3(1.0,1.0,1.0),d=vec3(0.0,0.33,0.67);return a+b*cos(6.28318*(c*t+d));}\nvoid main(){vec2 uv=(gl_FragCoord.xy-res*0.5)/min(res.x,res.y);vec3 ro=rot*vec3(0.0,0.0,zoom);vec3 rd=normalize(rot*vec3(uv.x,uv.y,-1.6));float r=clamp(length(uv)*1.1,0.0,1.0);vec3 bgCol=mix(vec3(0.07,0.09,0.22),vec3(0.01,0.01,0.04),r*r);vec4 bg=vec4(bgCol,1.0);float bR=1.15;float b2=dot(ro,rd),c2=dot(ro,ro)-bR*bR,disc=b2*b2-c2;if(disc<0.0){fragColor=bg;return;}float sq=sqrt(disc),tEn=max(-b2-sq,0.0),tEx=-b2+sq;if(tEx<0.0){fragColor=bg;return;}float t=tEn,hit=-1.0,ss=0.018,prev=implicit(ro+rd*t);for(int i=0;i<280;i++){t+=ss;if(t>tEx)break;float g=implicit(ro+rd*t);if(prev*g<0.0){hit=t-ss*(g/(g-prev));break;}prev=g;}if(hit<0.0){fragColor=bg;return;}vec3 pos=ro+rd*hit;vec3 n=nrm(pos);if(dot(n,-rd)<0.0)n=-n;float Eval=Edir(normalize(pos)),Enorm=clamp(Eval/Emax,0.0,1.0),dy=dot(n,vec3(0.0,1.0,0.0)),dz=dot(n,vec3(0.0,0.0,1.0)),hue=dy*dy*0.33+dz*dz*0.67+Enorm*0.15;vec3 iridBase=palette(hue),iridShift=palette(hue+0.5),l1=normalize(vec3(1.0,1.8,2.0)),l2=normalize(vec3(-0.8,-0.3,0.6));float l3=max(dot(n,normalize(vec3(-0.5,-1.0,-1.5))),0.0)*0.3,diff=0.35+max(dot(n,l1),0.0)*0.7+max(dot(n,l2),0.0)*0.25+l3,spec1=pow(max(dot(reflect(-l1,n),-rd),0.0),120.0)*1.5,spec2=pow(max(dot(reflect(-l1,n),-rd),0.0),20.0)*0.4,rim=pow(1.0-max(dot(n,-rd),0.0),2.5)*0.8,fresnel=pow(1.0-max(dot(n,-rd),0.0),3.0);vec3 col=mix(iridBase,iridShift,Enorm*0.35)*diff;col+=iridShift*fresnel*0.6;col+=vec3(spec1+spec2);col+=iridShift*rim*0.45;col*=(0.7+Enorm*0.4);fragColor=vec4(clamp(col,0.0,1.0),1.0);}\n';}
+function buildStiffFrag(Ex,Ey,Ez,Gxy,nu){var E=(Ex+Ey+Ez)/3,S11=1/E,S12=-nu/E,S44=1/Gxy,d=(S11-S12)*(S11+2*S12),C11=(S11+S12)/d,C12=-S12/d,C44=1/S44,A=2*C44/(C11-C12),Gamma=2*S11-2*S12-S44,E100=1/S11,E111=Math.abs(S11-Gamma/3)>1e-9?1/(S11-Gamma/3):E100,Emax=Math.max(E100,E111,Ex,Ey,Ez)*1.08;var zv=document.getElementById('zener-val'),zm=document.getElementById('zener-marker'),zl=document.getElementById('zener-label');if(zv)zv.textContent=A.toFixed(3);if(zm){var Aclamp=Math.min(Math.max(A,0.3),2.5);zm.style.left=((Aclamp-0.3)/(2.5-0.3)*100).toFixed(1)+'%';}var Acol=A<0.8?'var(--axis-y)':A<1.2?'var(--ink-dim)':A<2.0?'var(--axis-x)':'var(--ok)',Albl=A<0.7?'strongly axial':A<0.9?'axial dominant':A<1.1?'near-isotropic':A<1.5?'diagonal dominant':'strongly diagonal';if(zv)zv.style.color=Acol;if(zl){zl.textContent=Albl;zl.style.color=Acol;}function f(v){var s=v.toFixed(8);return s;}return'#version 300 es\nprecision highp float;\nout vec4 fragColor;\nuniform vec2 res;uniform mat3 rot;uniform float zoom;\nfloat S11='+f(S11)+';float Gamma='+f(Gamma)+';float Emax='+f(Emax)+';\nfloat Edir(vec3 n){float w=n.x*n.x*n.y*n.y+n.y*n.y*n.z*n.z+n.z*n.z*n.x*n.x;return 1.0/max(abs(S11-(Gamma*0.5)*w),1e-6);}\nfloat implicit(vec3 P){float r=length(P);if(r<0.001)return -1.0;return r-Edir(P/r)/Emax;}\nvec3 nrm(vec3 P){float e=0.004;return normalize(vec3(implicit(P+vec3(e,0.0,0.0))-implicit(P-vec3(e,0.0,0.0)),implicit(P+vec3(0.0,e,0.0))-implicit(P-vec3(0.0,e,0.0)),implicit(P+vec3(0.0,0.0,e))-implicit(P-vec3(0.0,0.0,e))));}\nvec3 palette(float t){vec3 a=vec3(0.5,0.5,0.5),b=vec3(0.5,0.5,0.5),c=vec3(1.0,1.0,1.0),d=vec3(0.0,0.33,0.67);return a+b*cos(6.28318*(c*t+d));}\nvoid main(){vec2 uv=(gl_FragCoord.xy-res*0.5)/min(res.x,res.y);vec3 ro=rot*vec3(0.0,0.0,zoom);vec3 rd=normalize(rot*vec3(uv.x,uv.y,-1.6));float r=clamp(length(uv)*1.1,0.0,1.0);vec3 bgCol=mix(vec3(0.07,0.09,0.22),vec3(0.01,0.01,0.04),r*r);vec4 bg=vec4(bgCol,1.0);float bR=1.15;float b2=dot(ro,rd),c2=dot(ro,ro)-bR*bR,disc=b2*b2-c2;if(disc<0.0){fragColor=bg;return;}float sq=sqrt(disc),tEn=max(-b2-sq,0.0),tEx=-b2+sq;if(tEx<0.0){fragColor=bg;return;}float t=tEn,hit=-1.0,ss=0.018,prev=implicit(ro+rd*t);for(int i=0;i<280;i++){t+=ss;if(t>tEx)break;float g=implicit(ro+rd*t);if(prev*g<0.0){hit=t-ss*(g/(g-prev));break;}prev=g;}if(hit<0.0){fragColor=bg;return;}vec3 pos=ro+rd*hit;vec3 n=nrm(pos);if(dot(n,-rd)<0.0)n=-n;float Eval=Edir(normalize(pos)),Enorm=clamp(Eval/Emax,0.0,1.0),dy=dot(n,vec3(0.0,1.0,0.0)),dz=dot(n,vec3(0.0,0.0,1.0)),hue=dy*dy*0.33+dz*dz*0.67+Enorm*0.15;vec3 iridBase=palette(hue),iridShift=palette(hue+0.5),l1=normalize(vec3(1.0,1.8,2.0)),l2=normalize(vec3(-0.8,-0.3,0.6));float l3=max(dot(n,normalize(vec3(-0.5,-1.0,-1.5))),0.0)*0.3,diff=0.35+max(dot(n,l1),0.0)*0.7+max(dot(n,l2),0.0)*0.25+l3,spec1=pow(max(dot(reflect(-l1,n),-rd),0.0),120.0)*1.5,spec2=pow(max(dot(reflect(-l1,n),-rd),0.0),20.0)*0.4,rim=pow(1.0-max(dot(n,-rd),0.0),2.5)*0.8,fresnel=pow(1.0-max(dot(n,-rd),0.0),3.0);vec3 col=mix(iridBase,iridShift,Enorm*0.35)*diff;col+=iridShift*fresnel*0.6;col+=vec3(spec1+spec2);col+=iridShift*rim*0.45;col*=(0.7+Enorm*0.4);fragColor=vec4(clamp(col,0.0,1.0),1.0);}\n';}
 function mkSShader(type,src){var s=sgl.createShader(type);sgl.shaderSource(s,src);sgl.compileShader(s);return s;}
 function initStiffnessGL(){var cv=document.getElementById('ellcv'),wrap=document.getElementById('ellcv-wrap'),w=Math.max(wrap?wrap.offsetWidth:80,40);cv.width=w;cv.height=w;sgl=cv.getContext('webgl2')||cv.getContext('webgl');if(!sgl){cv.style.display='none';return false;}if(!squadBuf){squadBuf=sgl.createBuffer();sgl.bindBuffer(sgl.ARRAY_BUFFER,squadBuf);sgl.bufferData(sgl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),sgl.STATIC_DRAW);}sRotMat=smat3Mul(sRotAxisAngle(0,1,0,0.6),sRotAxisAngle(1,0,0,-0.3));sInitialized=true;(function sloop(){requestAnimationFrame(sloop);drawStiffnessSurface();})();return true;}
 function rebuildStiffnessShader(Ex,Ey,Ez,Gxy,nu){if(!sInitialized&&!initStiffnessGL())return;var Emean=(Ex+Ey+Ez)/3;sZoom=3.4*(Math.max(Ex,Ey,Ez)*1.08/Emean);var prg=sgl.createProgram();sgl.attachShader(prg,mkSShader(sgl.VERTEX_SHADER,SVERT));sgl.attachShader(prg,mkSShader(sgl.FRAGMENT_SHADER,buildStiffFrag(Ex,Ey,Ez,Gxy,nu)));sgl.linkProgram(prg);if(!sgl.getProgramParameter(prg,sgl.LINK_STATUS)){console.error(sgl.getProgramInfoLog(prg));return;}if(sprog)sgl.deleteProgram(sprog);sprog=prg;sgl.useProgram(sprog);sgl.bindBuffer(sgl.ARRAY_BUFFER,squadBuf);var loc=sgl.getAttribLocation(sprog,'p');sgl.enableVertexAttribArray(loc);sgl.vertexAttribPointer(loc,2,sgl.FLOAT,false,0,0);suRes=sgl.getUniformLocation(sprog,'res');suRot=sgl.getUniformLocation(sprog,'rot');suZoom=sgl.getUniformLocation(sprog,'zoom');}
@@ -969,7 +1254,7 @@ function voxelizeField(params,N){var isRD=(params.fieldType==='reactiondiffusion
 function computeMIL(vox,N){var N2=N*N;function mil(ax){var t=0;for(var a=0;a<N;a++)for(var b=0;b<N;b++){var p=255;for(var c=0;c<N;c++){var i=ax===0?c*N2+a*N+b:ax===1?a*N2+c*N+b:a*N2+b*N+c;var v=vox[i];if(p!==255&&v!==p)t++;p=v;}}return t===0?N*1e6:(N*N*N)/(t*0.5);}return{milX:mil(0),milY:mil(1),milZ:mil(2)};}
 function hsPlus(Es,nu,rho){var K1=Es/(3*(1-2*nu)),G1=Es/(2*(1+nu)),Kp=K1*rho/(1+(1-rho)*3*K1/(3*K1+4*G1)),Gp=G1*rho/(1+(1-rho)*6*(K1+2*G1)/(5*G1*(3*K1+4*G1)));return{Ehsp:9*Kp*Gp/(3*Kp+Gp),Gp:Gp};}
 function runHomogenization(params,N,Es,nu){var v=voxelizeField(params,N),rho=v.nSolid/(N*N*N),mil=computeMIL(v.vox,N),hx=mil.milX*mil.milX,hy=mil.milY*mil.milY,hz=mil.milZ*mil.milZ,hmean=(hx+hy+hz)/3,wx=hx/hmean,wy=hy/hmean,wz=hz/hmean,hs=hsPlus(Es,nu,rho),Ex=hs.Ehsp*wx,Ey=hs.Ehsp*wy,Ez=hs.Ehsp*wz,Gxy=hs.Gp*Math.sqrt(wx*wy),nuEff=nu*(1-rho),aniso=Math.max(Ex,Ey,Ez)/Math.max(Math.min(Ex,Ey,Ez),1e-9);return{rho:rho,Ex:Ex,Ey:Ey,Ez:Ez,Gxy:Gxy,nuEff:nuEff,aniso:aniso};}
-function displayHomoResults(res,N,Es){function card(label,value,unit,color){return '<div style="background:#0e0e1a;border:0.5px solid #2a2a3a;border-radius:8px;padding:7px 8px;text-align:center"><div style="font-size:15px;font-weight:500;color:'+(color||'#e0e0ff')+'">'+value+'</div><div style="font-size:10px;color:#555;margin-top:1px">'+label+(unit?' <span style="color:#888">'+unit+'</span>':'')+'</div></div>';}var anisoColor=res.aniso<1.1?'#888':res.aniso<1.5?'#22d3ee':'#e879f9';document.getElementById('homoMetrics').innerHTML=card('vol. fraction',(res.rho*100).toFixed(1)+'%','','#22c55e')+card('E<sub>x</sub>',res.Ex.toFixed(2),'GPa','#22d3ee')+card('E<sub>y</sub>',res.Ey.toFixed(2),'GPa','#e879f9')+card('E<sub>z</sub>',res.Ez.toFixed(2),'GPa','#facc15')+card('Zener A',res.aniso.toFixed(3),'',anisoColor)+card('G<sub>xy</sub>',res.Gxy.toFixed(2),'GPa','#a78bfa')+card('&#957;<sub>eff</sub>',res.nuEff.toFixed(3),'','#e0e0ff');document.getElementById('homoResults').style.display='block';document.getElementById('homoStatus').textContent=N+'³ · ρ='+(res.rho*100).toFixed(1)+'% · E_s='+Es+' GPa';var btn=document.getElementById('exportBtn');btn.textContent='Export JSON (+ homog)';btn.style.borderColor='#7c6ff7';btn.style.color='#a89cf7';setTimeout(function(){rebuildStiffnessShader(res.Ex,res.Ey,res.Ez,res.Gxy,res.nuEff);},50);}
+function displayHomoResults(res,N,Es){function card(label,value,unit,color,cls){return '<div class="mc'+(cls?' '+cls:'')+'"><div class="mc-v"'+(color?' style="color:'+color+'"':'')+'>'+value+'</div><div class="mc-l">'+label+(unit?' <span>'+unit+'</span>':'')+'</div></div>';}var anisoColor=res.aniso<1.1?'var(--ink-dim)':res.aniso<1.5?'var(--axis-x)':'var(--axis-y)';document.getElementById('homoMetrics').innerHTML=card('vol. fraction',(res.rho*100).toFixed(1)+'%','','var(--ok)','w2')+card('E<sub>x</sub>',res.Ex.toFixed(2),'GPa','var(--axis-x)')+card('E<sub>y</sub>',res.Ey.toFixed(2),'GPa','var(--axis-y)')+card('E<sub>z</sub>',res.Ez.toFixed(2),'GPa','var(--axis-z)')+card('Zener A',res.aniso.toFixed(3),'',anisoColor)+card('G<sub>xy</sub>',res.Gxy.toFixed(2),'GPa')+card('&#957;<sub>eff</sub>',res.nuEff.toFixed(3),'');document.getElementById('homoResults').style.display='block';document.getElementById('homoStatus').textContent=N+'³ · ρ='+(res.rho*100).toFixed(1)+'% · E_s='+Es+' GPa';var btn=document.getElementById('exportBtn');btn.textContent='Export JSON (+ homog)';btn.classList.add('has-results');setTimeout(function(){rebuildStiffnessShader(res.Ex,res.Ey,res.Ez,res.Gxy,res.nuEff);},50);}
 
 // Orchestration
 var gridGen=null,raymarcher=null;
@@ -1033,7 +1318,11 @@ function updateControlVisibility(){
   var isGRF=(ft==='gaussian');
   var isWave=!isHU&&!isRD;
   show('rdControls',isRD);
-  show('dirBiasSection',!isRD);
+  // Direction is not used by reaction-diffusion: the section stays in the rail, its controls are off
+  var dirBody=document.getElementById('dirBiasSection');
+  dirBody.classList.toggle('off',isRD);
+  if(isRD)dirBody.setAttribute('inert','');else dirBody.removeAttribute('inert');
+  document.getElementById('dirNote').hidden=!isRD;
   var isIso=(dirMode==='iso');
 
   // Field-type specific panels
@@ -1044,7 +1333,6 @@ function updateControlVisibility(){
   function show(id,vis){var el=document.getElementById(id);if(el)el.style.display=vis?'':'none';}
   show('nWavesRow',   isWave);
   show('frequencyRow',isWave);
-  show('smoothingRow',isWave);
 
   // Kappa is irrelevant in iso mode for all field types
   show('kappaRow',   !isIso);
@@ -1245,13 +1533,15 @@ function onRunRD(){
   if(!raymarcher)return;
   var btn=document.getElementById('rdRunBtn');
   var rollBtn=document.getElementById('rdRollBtn');
-  btn.disabled=true;btn.textContent='simulating…';
+  clearHomogResults();
+  var lbl=document.getElementById('rdRunLbl');
+  btn.disabled=true;lbl.textContent='Simulating…';
   if(rollBtn)rollBtn.disabled=true;
   setTimeout(function(){
     raymarcher._bakeField(getParams());
     var check=setInterval(function(){
       if(!raymarcher.currentParams||!document.getElementById('labelNoise').textContent.includes('ready'))return;
-      clearInterval(check);btn.disabled=false;btn.textContent='▶ Simulate';
+      clearInterval(check);btn.disabled=false;lbl.textContent='Simulate';
       if(rollBtn)rollBtn.disabled=false;
     },200);
   },20);
@@ -1265,7 +1555,15 @@ function onRollAndSimulate(){
   if(label)label.textContent=newSeed;
   onRunRD();
 }
-function regenerate(){if(!raymarcher)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(function(){raymarcher.setParams(getParams());},300);}
+// A design change makes any homogenization result stale: clear it (and the export's results block).
+function clearHomogResults(){
+  if(!lastHomogResult&&document.getElementById('homoResults').style.display!=='block')return;
+  lastHomogResult=null;
+  document.getElementById('homoResults').style.display='none';
+  document.getElementById('homoStatus').textContent='';
+  var b=document.getElementById('exportBtn');b.textContent='Export JSON';b.classList.remove('has-results');
+}
+function regenerate(){clearHomogResults();if(!raymarcher)return;clearTimeout(debounceTimer);debounceTimer=setTimeout(function(){raymarcher.setParams(getParams());},300);}
 
 var HU_NREF=30;
 function huEffectiveWidth(){var w=parseFloat(document.getElementById('huWidth').value);var lk=document.getElementById('huLockScale');if(lk&&lk.checked){var n=parseInt(document.getElementById('huN').value);if(n>0)w=w*Math.cbrt(HU_NREF/n);}return w;}
@@ -1280,12 +1578,10 @@ function onTopologyToggle(mode){
   var ids=['btnSheet','btnHalf','btnSolid'],modes=['sheet','half','solid'];
   for(var i=0;i<ids.length;i++){
     var active=(modes[i]===mode);
-    document.getElementById(ids[i]).style.background=active?'#7c6ff7':'transparent';
-    document.getElementById(ids[i]).style.color=active?'#fff':'#888';
-    document.getElementById(ids[i]).style.borderColor=active?'#7c6ff7':'#3a3a5a';
+    document.getElementById(ids[i]).classList.toggle('active',active);
   }
   // Hide thickness for half-solid — it only uses isoLevel as threshold
-  document.getElementById('thicknessRow').style.display=mode==='half'?'none':'flex';
+  document.getElementById('thicknessRow').style.display=mode==='half'?'none':'';
   document.getElementById('flipRow').style.display=mode==='half'?'block':'none';
   if(mode!=='half'){halfInvert=false;document.getElementById('flipGlyph').classList.remove('flipped');}
   regenerate();
@@ -1361,15 +1657,7 @@ function openInLab(){
   }
 }
 function showLabNote(msg){
-  var n=document.getElementById('labNote');
-  if(!n){
-    n=document.createElement('div'); n.id='labNote'; n.setAttribute('role','status');
-    n.innerHTML='<span></span><button type="button" aria-label="Dismiss">×</button>';
-    n.querySelector('button').addEventListener('click',function(){ n.classList.remove('show'); });
-    document.body.appendChild(n);
-  }
-  n.querySelector('span').textContent='⚠︎ '+msg;
-  n.classList.add('show');
+  if(window.F13UI&&F13UI.message)F13UI.message(msg,{ms:9000});
 }
 
 // Thin wrapper around buildExportJSON — handles download, clipboard,
@@ -1389,27 +1677,179 @@ function onExportJSON(){
   URL.revokeObjectURL(url);
   navigator.clipboard.writeText(json).catch(function(){});
   var btn=document.getElementById('exportBtn'),orig=btn.textContent;
-  btn.textContent='Copied + downloaded \u2713';
-  btn.style.color='#69f0ae';btn.style.borderColor='#69f0ae';
+  btn.textContent='Copied and downloaded';
+  btn.classList.add('done');
   setTimeout(function(){
     btn.textContent=orig;
-    btn.style.color=lastHomogResult?'#a89cf7':'#666';
-    btn.style.borderColor=lastHomogResult?'#7c6ff7':'#2a2a3a';
+    btn.classList.remove('done');
   },1800);
 }
 
 function onClipPill(axis){if(clipState.axis===axis){clipState.axis=0;}else{clipState.axis=axis;clipState.pos=0.0;clipState.side=1;}updateClipPills();if(raymarcher)raymarcher._dirty=true;}
-function updateClipPills(){var cols={1:'#22d3ee',2:'#e879f9',3:'#facc15'},nm={1:'X',2:'Y',3:'Z'};[1,2,3].forEach(function(a){var el=document.getElementById('clipPill'+nm[a]);if(!el)return;if(clipState.axis===a){el.classList.add('active');el.style.color=cols[a];el.style.borderColor=cols[a];}else{el.classList.remove('active');el.style.color='#555';el.style.borderColor='#2a2a3a';}});}
+function updateClipPills(){var nm={1:'X',2:'Y',3:'Z'};[1,2,3].forEach(function(a){var el=document.getElementById('clipPill'+nm[a]);if(!el)return;el.classList.toggle('active',clipState.axis===a);});}   // axis colours come from CSS (--axis-x/y/z)
 function drawClipHandle(rotMat,canvasW,canvasH,camZoom){window.__clipHandleScreen=null;if(clipState.axis<1)return;var cv=document.getElementById('axisCanvas');if(!cv||cv.style.display==='none')return;var ctx=cv.getContext('2d');var H_HALF=Math.PI;function proj(p){var tx=rotMat[0]*p[0]+rotMat[1]*p[1]+rotMat[2]*p[2];var ty=rotMat[3]*p[0]+rotMat[4]*p[1]+rotMat[5]*p[2];var tz=rotMat[6]*p[0]+rotMat[7]*p[1]+rotMat[8]*p[2];var pcz=tz-camZoom;if(pcz>-0.1)return null;var sscl=Math.min(canvasW,canvasH);return [canvasW/2+(-1.6*tx/pcz)*sscl,canvasH/2-(-1.6*ty/pcz)*sscl];}var aIdx=clipState.axis-1,cp=clipState.pos*H_HALF;var c=[0,0,0];c[aIdx]=cp;var sc=proj(c);if(!sc)return;var col=['#22d3ee','#e879f9','#facc15'][aIdx];ctx.save();var free=[0,1,2].filter(function(k){return k!==aIdx;});var sg=[[-1,-1],[1,-1],[1,1],[-1,1]];var pts=sg.map(function(g){var p=[0,0,0];p[aIdx]=cp;p[free[0]]=g[0]*H_HALF;p[free[1]]=g[1]*H_HALF;return proj(p);});if(pts.every(Boolean)){ctx.globalAlpha=0.5;ctx.lineWidth=1.5;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.lineTo(pts[2][0],pts[2][1]);ctx.lineTo(pts[3][0],pts[3][1]);ctx.closePath();ctx.stroke();}ctx.globalAlpha=0.95;ctx.lineWidth=2;ctx.strokeStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],9,0,6.2832);ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],3.2,0,6.2832);ctx.fill();ctx.restore();var e=[0,0,0];e[aIdx]=cp+0.4;var se=proj(e);var dirx=0,diry=0,len=0;if(se){var dx=se[0]-sc[0],dy=se[1]-sc[1];len=Math.hypot(dx,dy)||1;dirx=dx/len;diry=dy/len;}window.__clipHandleScreen={x:sc[0],y:sc[1],dirx:dirx,diry:diry,len:len,axisStep:0.4};}
 document.addEventListener('DOMContentLoaded', function(){
   var glEl = document.getElementById('glCanvas');
   if(!glEl){ console.error('Canvas elements not found'); return; }
   gridGen = new SpinodoidGridGenerator();
   raymarcher = new Raymarcher(glEl);
-  f13View = f13ViewInit({tool:'grain',host:document.getElementById('cw'),canvas:glEl,css:'top:64px',redraw:function(){raymarcher._dirty=true;}});
+  f13View = f13ViewInit({tool:'grain',host:document.getElementById('cw'),canvas:glEl,redraw:function(){raymarcher._dirty=true;}});
   if(!raymarcher.gl){ console.warn('WebGL unavailable — 3D view disabled'); }
   setTimeout(function(){ updateControlVisibility(); updateClipPills(); showIndicators(true); raymarcher.running=true; raymarcher.setParams(getParams()); }, 100);
 });
+
+// ==== header message (replaces alert()/toast). F13UI.message(text,{action:{label,run},note,ms}) ====
+(function(){
+  var UI=window.F13UI=window.F13UI||{},msgT=null;
+  UI.message=function(t,o){
+    var m=document.getElementById('hdrMsg');if(!m)return;
+    o=o||{};m.textContent=t;m.hidden=false;clearTimeout(msgT);
+    if(o.action){
+      var b=document.createElement('button');b.type='button';b.className='hdr-msg-act';b.textContent=o.action.label;
+      b.addEventListener('click',function(e){e.stopPropagation();m.hidden=true;o.action.run();});
+      m.appendChild(document.createTextNode(' · '));m.appendChild(b);
+    }
+    if(o.note){var n=document.createElement('div');n.className='hdr-msg-note';n.textContent=o.note;m.appendChild(n);}
+    msgT=setTimeout(function(){m.hidden=true;},o.ms||(o.action?8000:5000));
+  };
+  document.addEventListener('click',function(e){var m=document.getElementById('hdrMsg');if(m&&!m.hidden&&!e.target.closest('#f13ldq-fallback,#hdrMsg'))m.hidden=true;});
+})();
+
+/* ============================================================================
+   F13LD UI template · layout.js — sections (one at a time) + phone bottom sheet.
+   Generic: sections come from .sec[data-section] in DOM order.
+   window.F13UI is the hook surface the wiring and the widgets use:
+     F13UI.sections / active / isPhone() / showSection(id) / scrollToSection(id) (alias)
+     F13UI.sectionOf(el) / setSheet('peek'|'full') / revealControl(sel)
+     F13UI.onSectionChange(id)  set by f13ui-wire.js
+   ========================================================================== */
+(function(){
+  const UI=window.F13UI=window.F13UI||{};
+  const SECS=[...document.querySelectorAll('.sec[data-section]')].map(s=>s.dataset.section);   // order = DOM order
+  const mq=window.matchMedia('(max-width:899px)');
+  const scroller=document.getElementById('ctrlScroll');
+  const pane=document.getElementById('ctrlPane');
+  const secEl=id=>document.getElementById('sec-'+id);
+  UI.sections=SECS.slice();
+  UI.active=SECS[0];
+  UI.isPhone=()=>mq.matches;
+  function setActive(id){
+    if(!SECS.includes(id)||id===UI.active)return;
+    UI.active=id;
+    document.querySelectorAll('.sb-fallback [data-section]').forEach(b=>b.classList.toggle('on',b.dataset.section===id));
+    if(UI.onSectionChange)try{UI.onSectionChange(id);}catch(e){console.error(e);}
+  }
+  function applySections(){
+    SECS.forEach(s=>secEl(s).classList.toggle('on',s===UI.active));
+    updateFades();
+  }
+  UI.showSection=function(id){
+    if(!SECS.includes(id))return;
+    const changed=id!==UI.active;
+    setActive(id);applySections();
+    if(changed)scroller.scrollTop=0;
+  };
+  UI.scrollToSection=UI.showSection;
+  UI.sectionOf=function(el){const s=el&&el.closest&&el.closest('.sec[data-section]');return s?s.dataset.section:null;};
+  // the column scrolls only when the active section is taller than it; fade only the edges that hide content
+  function updateFades(){
+    const y=scroller.scrollTop,max=scroller.scrollHeight-scroller.clientHeight;
+    scroller.classList.toggle('ft',y>1);
+    scroller.classList.toggle('fb',max-y>1);
+  }
+  scroller.addEventListener('scroll',updateFades,{passive:true});
+  if(window.ResizeObserver){const ro=new ResizeObserver(updateFades);ro.observe(scroller);SECS.forEach(s=>ro.observe(secEl(s)));}
+  document.querySelectorAll('.sb-fallback [data-section]').forEach(b=>b.addEventListener('click',()=>UI.showSection(b.dataset.section)));
+
+  // header height drives the phone viewer height (the header wraps on phones)
+  const hdr=document.querySelector('.f13ld-header');
+  function setHdr(){document.documentElement.style.setProperty('--hdr-h',hdr.offsetHeight+'px');}
+  setHdr();if(window.ResizeObserver)new ResizeObserver(setHdr).observe(hdr);
+
+  // phone bottom sheet: drag the handle between peek (~45dvh) and full (~88dvh)
+  const handle=document.getElementById('sheetHandle');
+  let sheetState='peek';
+  const vh=()=>window.innerHeight;
+  const snapH=s=>Math.round(vh()*(s==='full'?0.88:0.45));
+  function setSheet(s,animate){
+    sheetState=s;
+    if(!animate)pane.classList.add('dragging');
+    pane.style.setProperty('--sheet-h',snapH(s)+'px');
+    if(!animate)requestAnimationFrame(()=>pane.classList.remove('dragging'));
+  }
+  UI.setSheet=s=>{if(s==='peek'||s==='full')setSheet(s,true);};
+  let dragY=null,startH=0,lastY=0,lastT=0,vel=0,moved=false;
+  handle.addEventListener('pointerdown',e=>{
+    if(!mq.matches)return;
+    dragY=e.clientY;lastY=e.clientY;lastT=performance.now();vel=0;moved=false;
+    startH=pane.getBoundingClientRect().height;
+    pane.classList.add('dragging');handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener('pointermove',e=>{
+    if(dragY===null)return;
+    const dy=e.clientY-dragY;if(Math.abs(dy)>4)moved=true;
+    const h=Math.max(snapH('peek')*0.6,Math.min(snapH('full'),startH-dy));
+    pane.style.setProperty('--sheet-h',h+'px');
+    const t=performance.now();vel=(e.clientY-lastY)/Math.max(1,t-lastT);lastY=e.clientY;lastT=t;
+  });
+  function endDrag(){
+    if(dragY===null)return;
+    dragY=null;pane.classList.remove('dragging');
+    if(!moved){setSheet(sheetState==='peek'?'full':'peek',true);return;}
+    const h=pane.getBoundingClientRect().height,mid=(snapH('peek')+snapH('full'))/2;
+    setSheet(vel<-0.4?'full':vel>0.4?'peek':(h>mid?'full':'peek'),true);
+  }
+  handle.addEventListener('pointerup',endDrag);
+  handle.addEventListener('pointercancel',endDrag);
+  handle.addEventListener('click',e=>{if(e.detail===0&&mq.matches)setSheet(sheetState==='peek'?'full':'peek',true);});   // keyboard
+
+  function redraw(){if(window.raymarcher)raymarcher._dirty=true;}
+  function applyLayout(){
+    applySections();
+    if(mq.matches)setSheet(sheetState,false);
+    else pane.style.removeProperty('--sheet-h');
+    redraw();
+  }
+  mq.addEventListener?mq.addEventListener('change',applyLayout):mq.addListener(applyLayout);
+  window.addEventListener('resize',()=>{if(mq.matches)setSheet(sheetState,false);});
+  // the viewer pane changes size with the sheet and the breakpoint: the ray-marcher re-reads it on the next frame
+  if(window.ResizeObserver)new ResizeObserver(redraw).observe(document.getElementById('cw'));
+  applyLayout();
+
+  // ---- help: "show" jumps from a drawer card to its control (the engine has no such action) ----
+  const HELP_TARGET={clip:'#clipOverlay',fieldtype:'#fieldType',grfsigma:'#grp-grfSigma',huaspect:'#grp-huAspect',huwidth:'#grp-huWidth',
+    huN:'#grp-huN',hucross:'#grp-huCross',husharp:'#grp-huSharp',hublend:'#grp-huBlend',huell:'#grp-huEll',
+    rdsystem:'#grp-rdSystem',rdpreset:'#grp-rdPreset',rddu:'#grp-rdDu',rddv:'#rdDvRow',rdf:'#grp-rdF',rdk:'#grp-rdK',
+    rdtile:'#grp-rdTile',rdsim:'#rdRunBtn',rdsteps:'#grp-rdSteps',dirmode:'#grp-dirMode',theta:'#grp-dirTheta',
+    phi:'#grp-dirPhi',weights:'#grp-wX',kappa:'#kappaRow',nwaves:'#nWavesRow',frequency:'#frequencyRow',seed:'#grp-rngSeed',
+    topology:'#grp-topology',center:'#grp-isoLevel',halfwidth:'#thicknessRow',grid:'#grp-homoGrid',es:'#homoEs',nu:'#homoNu',
+    run:'#runHomoBtn',export:'#exportBtn'};
+  UI.revealControl=function(sel){
+    const el=typeof sel==='string'?document.querySelector(sel):sel;if(!el)return false;
+    const sec=UI.sectionOf(el);if(sec)UI.showSection(sec);
+    if(sec&&UI.isPhone()&&UI.setSheet)UI.setSheet('full');
+    if(!el.getClientRects().length)return false;                    // hidden for the current field type or mode
+    const row=el.closest('.sc-group,.clip-wrap')||el;
+    const reduce=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    row.scrollIntoView({block:'center',behavior:reduce?'auto':'smooth'});
+    row.classList.remove('f13w-flash');void row.offsetWidth;row.classList.add('f13w-flash');
+    setTimeout(()=>row.classList.remove('f13w-flash'),1400);
+    return true;
+  };
+  const SHOW_ICON='<svg class="ic sm" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2.4M8 11.8v2.4M1.8 8h2.4M11.8 8h2.4"/></svg>';
+  function addShowButtons(){
+    Object.keys(HELP_TARGET).forEach(id=>{
+      const h=document.querySelector('#f13h-card-'+id+' .f13h-card-h');if(!h||h.querySelector('.f13w-show'))return;
+      const b=document.createElement('button');b.type='button';b.className='f13w-show';b.innerHTML=SHOW_ICON+'<span>show</span>';
+      b.setAttribute('aria-label','Show this control');
+      b.addEventListener('click',e=>{e.stopPropagation();
+        const s=document.querySelector('.f13h-scrim.open');if(s)s.click();   // close the drawer the engine's own way
+        UI.revealControl(HELP_TARGET[id]);});
+      h.appendChild(b);
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(addShowButtons,0));else setTimeout(addShowButtons,0);
+})();
 </script>
 
 <!-- ===================================================================== -->
@@ -1422,8 +1862,8 @@ document.addEventListener('DOMContentLoaded', function(){
 <!-- ---- PER-TOOL THEME (only block that changes color per tool) -------- -->
 <style id="f13h-theme">
   :root{
-    --f13h-accent:      #22d3ee;
-    --f13h-accent-soft: #3a9fb5;
+    --f13h-accent:      #c4beaa;
+    --f13h-accent-soft: #9d9886;
     --f13h-panel:       #0e0e1a;
     --f13h-panel2:      #1a1a2e;
     --f13h-bg:          #06080f;
@@ -1432,7 +1872,7 @@ document.addEventListener('DOMContentLoaded', function(){
     --f13h-text:        #e0e0ff;
     --f13h-dim:         #7c8aaa;
     --f13h-bright:      #f0f1ff;
-    --f13h-glow:        rgba(34,211,238,0.20);
+    --f13h-glow:        rgba(196,190,170,0.20);
   }
 </style>
 
@@ -1570,7 +2010,7 @@ document.addEventListener('DOMContentLoaded', function(){
       { id:'huN', label:'N kernels', range:'10 \u2013 500', anchor:{row:'#huN'},
         what:'How many kernels are summed.',
         see:'More = smoother, more uniform coverage; fewer = sparser and lumpier.',
-        why:'Hyperuniformity improves with N \u2014 it suppresses long-range density fluctuations. (Binned kernel field keeps high N usable; N>200 bakes slower at ultra \u2014 use Section 2D for fast high-N exploration.)' },
+        why:'Hyperuniformity improves with N \u2014 it suppresses long-range density fluctuations. (Binned kernel field keeps high N usable; N>200 bakes slower at ultra.)' },
       { id:'hucross', label:'cross-section', range:'1 \u2013 8', anchor:{row:'#huCross'},
         what:'Transverse contour exponent of each kernel.',
         see:'1 diamond; 2 round; 6+ square-section struts.',
@@ -1672,11 +2112,7 @@ document.addEventListener('DOMContentLoaded', function(){
       { id:'halfwidth', label:'half-width', range:'0.01 \u2013 0.5 \u00b7 sheet', anchor:{row:'#thickness'},
         what:'Half-thickness of the sheet around the level set.',
         see:'The wall fattens or thins.',
-        why:'Relative density for the sheet topology.' },
-      { id:'smoothing', label:'smoothing', range:'0 \u2013 1', anchor:{row:'#smoothing'},
-        what:'Low-pass smoothing of the field before meshing.',
-        see:'Rounds off sharp features and speckle.',
-        why:'Cleans printability at the cost of fine detail.' }
+        why:'Relative density for the sheet topology.' }
     ]},
     { title:'Homogenization \u00b7 MIL-HS', items:[
       { id:'grid', label:'grid', range:'32\u00b3 / 48\u00b3 / 64\u00b3', anchor:{row:'#homoGrid'},
@@ -1698,7 +2134,7 @@ document.addEventListener('DOMContentLoaded', function(){
     ]},
     { title:'Handoff', items:[
       { id:'export', label:'Export JSON / Queue / Mesh / Lab',
-        what:'Saves the current recipe as JSON, or hands it on from the header: ⊕ Queue adds it to your F13LD.queue (▾ picks which queue), ⬡ Mesh opens it in F13LD.mesh, ▦ Lab opens it in F13LD.lab.',
+        what:'Saves the current recipe as JSON, or hands it on from the header: Queue adds it to your F13LD.queue (the arrow beside it picks which queue), Mesh opens it in F13LD.mesh, Lab opens it in F13LD.lab.',
         see:'Downloads a file; in F13LD.mesh the recipe becomes a watertight, printable 3MF. In F13LD.lab it is homogenized by the FFT solver.',
         why:'The bridge from field design to meshing and printing.' }
     ]}
@@ -1851,7 +2287,7 @@ document.addEventListener('DOMContentLoaded', function(){
         return o.toDataURL('image/webp',0.72);
       }catch(e){ return null; }
     };
-    var RIGHT='.fh-right', ANCHOR='.fh-mesh-btn', LABEL='⊕ Queue';
+    var RIGHT='.fh-right', ANCHOR='.fh-mesh-btn', LABEL='Queue';   // drawn icon comes from CSS (.f13ldq-main::before)
     var TIP='Add to queue — save this recipe to an F13LD.queue list you can open on any device';
     function tipQueue(){
       var m=document.querySelector(RIGHT+' .f13ldq-main'), c=document.querySelector(RIGHT+' .f13ldq-caret');
@@ -1869,7 +2305,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var r=document.querySelector(RIGHT), a=document.querySelector(ANCHOR); if(!r) return;
       var b=document.createElement('button'); b.type='button'; b.id='f13ldq-fallback';
       b.className='fh-mesh-btn'; b.textContent=LABEL; b.title=TIP;
-      b.addEventListener('click', function(){ alert('Add to queue is offline — couldn\u2019t reach the queue service. Reload the page to try again.'); });
+      b.addEventListener('click', function(){ F13UI.message('Add to queue is offline — couldn\u2019t reach the queue service. Reload the page to try again.'); });
       if(a) r.insertBefore(b,a); else r.appendChild(b);
     }
     function load(retry){
