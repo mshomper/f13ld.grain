@@ -190,6 +190,8 @@ Estimates effective elastic properties from the voxelized scalar field using the
 
 The exported JSON carries the complete parameter set and, if homogenization has been run, the mechanical results. This file is the handoff to [F13LD.mesh](https://mshomper.github.io/f13ld.mesh).
 
+The header **Recipe** menu holds Open recipe…, Export JSON, Queue, Choose queue…, Mesh and Lab. A recipe exported from F13LD.grain can be loaded back with Open recipe…, by dropping the `.json` on the page, or by pasting it outside a text field. Import replaces the design (the header message offers Undo), clamps out-of-range values with a warning, ignores keys it does not know, and refuses recipes from other F13LD tools by name. Homogenization results are not restored. Reaction-diffusion recipes simulate automatically after import. `field.hu_lock_scale` records the "lock feature scale" switch: with it on, `hu_width` is the effective width (scaled by the cube root of 30/N), and the import undoes that scaling. F13LD.mesh and F13LD.lab ignore the key.
+
 **Wave-based fields (spinodoid / GRF / hyperuniform):**
 ```json
 {
