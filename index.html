@@ -5002,7 +5002,10 @@ function buildExportJSON(){
     rng_seed:params.rngSeed,dir_mode:params.dirMode,
     principal_direction:params.dirMode==='single'?[parseFloat((Math.sin(tRad)*Math.cos(pRad)).toFixed(4)),parseFloat((Math.sin(tRad)*Math.sin(pRad)).toFixed(4)),parseFloat(Math.cos(tRad).toFixed(4))]:null,
     ortho_weights:params.dirMode==='ortho'?[params.wX,params.wY,params.wZ]:null,
-    hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,hu_cross:params.huCross,hu_sharp:params.huSharp,hu_blend:params.huBlend,hu_ell:params.huEll,grf_sigma:params.grfSigma
+    hu_n:params.huN,hu_aspect:params.huAspect,hu_width:params.huWidth,hu_cross:params.huCross,hu_sharp:params.huSharp,hu_blend:params.huBlend,hu_ell:params.huEll,grf_sigma:params.grfSigma,
+    // hu_width above is the EFFECTIVE width; with the lock on, an import needs to know to undo the n scaling.
+    // Mesh and Lab read named keys only, so this extra key is ignored there (checked).
+    hu_lock_scale:!!(document.getElementById('huLockScale')&&document.getElementById('huLockScale').checked)
   };
   if(!omitDv) field.rd_Dv=params.rdDv;
   var out={
@@ -5210,7 +5213,7 @@ document.addEventListener('DOMContentLoaded', function(){
     rdtile:'#grp-rdTile',rdsim:'#w-run',rdsteps:'#grp-rdSteps',dirmode:'#grp-dirMode',theta:'#grp-dirTheta',
     phi:'#grp-dirPhi',weights:'#grp-wX',kappa:'#kappaRow',nwaves:'#nWavesRow',frequency:'#frequencyRow',seed:'#grp-rngSeed',
     topology:'#grp-topology',center:'#grp-isoLevel',halfwidth:'#thicknessRow',grid:'#grp-homoGrid',es:'#homoEs',nu:'#homoNu',
-    run:'#w-homoRun',export:'#exportBtn'};
+    run:'#w-homoRun',export:'#w-recipe'};   // Export JSON lives in the header Recipe menu
   UI.revealControl=function(sel){
     const el=typeof sel==='string'?document.querySelector(sel):sel;if(!el)return false;
     const sec=UI.sectionOf(el);if(sec)UI.showSection(sec);
@@ -5314,7 +5317,7 @@ document.addEventListener('DOMContentLoaded', function(){
     viewMenu:true,                     // shared F13LD-VIEW menu checkboxes → toggles
     run:{btn:'runHomoBtn',host:'w-homoRun'},   // homogenization; the RD Simulate button is mounted in grain.js
     clip:{host:'w-clip',get:()=>clipState.axis,set:n=>onClipPill(n)},
-    recipe:null,                       // Export / Queue / Mesh / Lab stay as they are until stage 5
+    recipe:{host:'w-recipe',exportBtn:'exportBtn',mesh:openInMesh,lab:openInLab},   // Recipe menu: Open recipe… / Export JSON / Queue / Choose queue… / Mesh / Lab
     helpTargets:{}                     // layout.js owns the help "show" buttons (HELP_TARGET)
   };
   /* ============ END PER-TOOL CONFIG ==================================== */
@@ -5664,6 +5667,268 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 </script>
 
+<style id="f13-recipe-style">
+/* F13LD UI template · recipe-import.css (drop overlay + header message extras), from F13LD.tpms v1.4.0; grain: the icon uses the tool accent */
+.f13r-drop{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;pointer-events:none;opacity:0;visibility:hidden;
+  background:oklch(0.10 0.01 265 / 0.6);transition:opacity 160ms ease-out,visibility 0s linear 160ms}
+.f13r-drop.on{opacity:1;visibility:visible;transition:opacity 160ms ease-out}
+.f13r-drop::before{content:'';position:absolute;inset:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));border-radius:24px;
+  box-shadow:inset 0 0 0 2px var(--accent),inset 0 0 40px var(--accent-soft),0 0 0 6px var(--accent-soft)}
+.f13r-card{position:relative;display:flex;align-items:center;gap:14px;padding:14px 22px 14px 14px;border-radius:24px;background:var(--card);
+  box-shadow:inset 0 1px 0 oklch(1 0 0 / 0.06),0 2px 0 oklch(0 0 0 / 0.35),0 18px 40px oklch(0 0 0 / 0.45);
+  transform:translateY(8px) scale(.96);transition:transform 220ms cubic-bezier(.3,1.4,.5,1)}
+.f13r-drop.on .f13r-card{transform:none}
+.f13r-drop-ic{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;color:var(--accent-ink);
+  background:radial-gradient(circle at 34% 28%,oklch(0.96 0.03 93) 0,var(--accent) 46%,oklch(0.70 0.04 93) 100%);
+  box-shadow:0 0 22px var(--accent-line),inset 0 -3px 6px oklch(0.45 0.04 93 / 0.35)}
+.f13r-drop-ic svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.f13r-card b{display:block;font:650 15px/20px var(--lq-font);color:var(--ink)}
+.f13r-card small{display:block;font:400 13px/18px var(--lq-font);color:var(--ink-dim)}
+@media (prefers-reduced-motion:reduce){.f13r-card{transform:none;transition:none}}
+</style>
+<script id="f13-recipe-import">
+/* ============================================================================
+   F13LD UI template · recipe-import.js — round-trip import of exported recipe JSON (design tools).
+   Extracted from F13LD.tpms v1.4.0 #f13-recipe-import. The GENERIC half is identical across tools;
+   only the PER-TOOL block changes. Entry points: Recipe → Open recipe…, drag-and-drop a .json
+   anywhere, paste recipe JSON outside text fields. Undo via the header message.
+   Needs: buildExportJSON(), F13UI.message(text,{note,action}) (shared header), f13-recipe-style.
+   ========================================================================== */
+(function(){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  const fire=(el,type)=>el.dispatchEvent(new Event(type,{bubbles:true}));
+
+  /* ============ PER-TOOL ============================================== */
+  // F13LD.grain. Export format: docs/UI_AUDIT.md §6. meta.tool is 'grain' (Lab and Mesh route on it: never rename).
+  // Dependency order (apply): field type → RD system + RD values → direction mode + angles / weights →
+  // kappa, waves, frequency, seed → HU values (+ lock) → sigma → topology → half-invert → center, half-width,
+  // with regenerate and raymarcher.setParams stubbed, then ONE regenerate (and one simulation for RD).
+  const FIELDS=['spinodoid','gaussian','hyperuniform','reactiondiffusion'];
+  const isObj=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
+  const toNum=v=>typeof v==='number'?v:(typeof v==='string'&&v.trim()!==''?+v:NaN);
+  const decs=x=>{const s=String(x);return s.indexOf('.')<0?0:s.split('.')[1].length;};
+  const NAMES={spinodoid:'spinodoid',gaussian:'Gaussian',hyperuniform:'hyperuniform'};
+  const SYSNAME={grayscott:'Gray-Scott',brusselator:'Brusselator',schnakenberg:'Schnakenberg'};
+  // slider ranges: static ones come from the control; RD ones depend on the target system (RD_SLIDER_CONFIG)
+  function range(id,sys){
+    const c=RD_SLIDER_CONFIG[sys];
+    if(id==='rdDu')return {min:c.duMin,max:c.duMax,step:c.duStep,def:c.duDefault};
+    if(id==='rdF')return {min:c.fMin,max:c.fMax,step:c.fStep,def:c.fDefault};
+    if(id==='rdK')return {min:c.kMin,max:c.kMax,step:c.kStep,def:c.kDefault};
+    if(id==='rdDv')return {min:c.dvMin,max:c.dvMax,step:c.dvStep,def:c.dvDefault};
+    const e=$(id);return {min:+e.min,max:+e.max,step:+e.step,def:parseFloat(e.defaultValue)};
+  }
+  // value (recipe units) → clamped, on the control's step grid; missing → the app default; not a number → default + warning
+  function fit(key,v,R,warn,def){
+    if(v===undefined||v===null)return def===undefined?R.def:def;
+    let x=toNum(v);
+    if(!isFinite(x)){warn(key+' is not a number; the default is used.');return def===undefined?R.def:def;}
+    const c=Math.min(R.max,Math.max(R.min,x));
+    if(c!==x)warn(key+' '+x+' → '+c+' (range '+R.min+'–'+R.max+')');
+    const d=Math.max(decs(R.step),decs(R.min));
+    let s=R.step>0?R.min+Math.round((c-R.min)/R.step)*R.step:c;
+    s=+Math.min(R.max,Math.max(R.min,s)).toFixed(d);
+    return s;
+  }
+  function plan(r,warn){
+    const f=isObj(r.field)?r.field:null;
+    if(!f)throw new Error('This recipe has no field block.');
+    const g=isObj(r.geometry)?r.geometry:{};
+    const ft=String(f.type);
+    if(FIELDS.indexOf(ft)<0)throw new Error('Unknown field type "'+f.type+'" (expected spinodoid, gaussian, hyperuniform or reactiondiffusion).');
+    const P={ft};
+    let sys=f.rd_system==null?'grayscott':String(f.rd_system);
+    if(!RD_SLIDER_CONFIG[sys]){warn('rd_system "'+sys+'" is unknown; Gray-Scott is used.');sys='grayscott';}
+    P.sys=sys;
+    // reaction-diffusion values (also carried by recipes of other field types, so the round trip stays exact)
+    P.rd={Du:fit('rd_Du',f.rd_Du,range('rdDu',sys),warn),F:fit('rd_F',f.rd_F,range('rdF',sys),warn),k:fit('rd_k',f.rd_k,range('rdK',sys),warn),
+          tile:fit('rd_tile',f.rd_tile,range('rdTile'),warn),steps:fit('rd_steps',f.rd_steps,range('rdSteps'),warn)};
+    // Gray-Scott does not use Dv: an RD export omits it and an old one may carry a stale value (ignored). A non-RD field exports the
+    // hidden slider's value even for Gray-Scott, so it is restored too (its hidden range may differ: apply widens it if needed).
+    if(sys!=='grayscott')P.rd.Dv=fit('rd_Dv',f.rd_Dv,range('rdDv',sys),warn);
+    else if(ft!=='reactiondiffusion'&&f.rd_Dv!=null)P.rd.Dv=fit('rd_Dv',f.rd_Dv,{min:1,max:80,step:0.5,def:16},warn);
+    // direction
+    let dm=f.dir_mode==null?'single':String(f.dir_mode);
+    if(['single','ortho','iso'].indexOf(dm)<0){warn('dir_mode "'+dm+'" is unknown; single is used.');dm='single';}
+    P.dir={mode:dm};
+    if(dm==='single'){
+      const pd=f.principal_direction;let th=0,ph=0;
+      if(Array.isArray(pd)&&pd.length===3&&pd.every(x=>isFinite(toNum(x)))){
+        const x=toNum(pd[0]),y=toNum(pd[1]),z=toNum(pd[2]),h=Math.hypot(x,y);
+        if(h+Math.abs(z)<1e-9)warn('principal_direction is a zero vector; +Z is used.');
+        else{th=Math.atan2(h,z)*180/Math.PI;ph=h<6e-5?0:Math.atan2(y,x)*180/Math.PI;if(ph<0)ph+=360;}
+      }else if(pd!=null)warn('principal_direction is not a 3-vector; +Z is used.');
+      P.dir.theta=fit('principal_direction (θ)',Math.round(th),range('dirTheta'),warn);P.dir.phi=fit('principal_direction (φ)',Math.round(ph),range('dirPhi'),warn);
+    }else if(dm==='ortho'){
+      const w=Array.isArray(f.ortho_weights)&&f.ortho_weights.length===3?f.ortho_weights:[undefined,undefined,undefined];
+      if(f.ortho_weights!=null&&!Array.isArray(f.ortho_weights))warn('ortho_weights is not a 3-vector; the defaults are used.');
+      P.dir.w=['wX','wY','wZ'].map((id,i)=>fit('ortho_weights['+i+']',w[i],range(id),warn));
+    }
+    P.kappa=fit('kappa',f.kappa,range('kappa'),warn);P.nWaves=fit('n_waves',f.n_waves,range('nWaves'),warn);
+    P.freq=fit('frequency',f.frequency,range('frequency'),warn);P.seed=fit('rng_seed',f.rng_seed,range('rngSeed'),warn);
+    // hyperuniform (older recipes lack cross / sharp / blend / ell: the defaults 2 / 1 / 1 / 1)
+    const hn=fit('hu_n',f.hu_n,range('huN'),warn);
+    P.hu={n:hn,aspect:fit('hu_aspect',f.hu_aspect,range('huAspect'),warn),lock:f.hu_lock_scale===true,
+          cross:fit('hu_cross',f.hu_cross,range('huCross'),warn),sharp:fit('hu_sharp',f.hu_sharp,range('huSharp'),warn)};
+    {const R=range('huWidth'),eff=toNum(f.hu_width);
+     // hu_width is the effective width: with the lock on the slider holds eff / cbrt(30/n)
+     const sv=isFinite(eff)&&P.hu.lock?eff/Math.cbrt(30/hn):f.hu_width;
+     P.hu.width=fit('hu_width',sv,R,warn);}
+    {const R={min:0,max:1,step:0.02,def:0},b=toNum(f.hu_blend);   // slider 0..1 shows 1.00..8.00; b = 1/(1 − 0.875 v)
+     if(f.hu_blend==null)P.hu.blend=0;
+     else if(!isFinite(b)||b<=0){warn('hu_blend is not a valid number; 1 is used.');P.hu.blend=0;}
+     else{const bc=Math.min(8,Math.max(1,b));if(bc!==b)warn('hu_blend '+b+' → '+bc+' (range 1–8)');P.hu.blend=fit('hu_blend',(1-1/bc)/0.875,R,()=>{});}}
+    {const R={min:-1,max:1,step:0.05,def:0},e=toNum(f.hu_ell);   // e = 4^v
+     if(f.hu_ell==null)P.hu.ell=0;
+     else if(!isFinite(e)||e<=0){warn('hu_ell is not a valid number; 1 (round) is used.');P.hu.ell=0;}
+     else{const ec=Math.min(4,Math.max(0.25,e));if(ec!==e)warn('hu_ell '+e+' → '+ec+' (range 0.25–4)');P.hu.ell=fit('hu_ell',Math.log(ec)/Math.log(4),R,()=>{});}}
+    P.grf=fit('grf_sigma',f.grf_sigma,range('grfSigma'),warn);
+    // geometry
+    let tp=g.topology==null?'sheet':String(g.topology);
+    if(['sheet','half','solid'].indexOf(tp)<0){warn('topology "'+tp+'" is unknown; sheet is used.');tp='sheet';}
+    if(ft==='hyperuniform'&&tp==='sheet'){warn('Sheet is not available for hyperuniform fields; half-solid is used.');tp='half';}
+    P.topo=tp;P.flip=tp==='half'&&g.half_invert===true;
+    P.iso=fit('center',g.center,range('isoLevel'),warn);P.hw=fit('half_width',g.half_width,range('thickness'),warn);
+    if(isFinite(toNum(g.smoothing))&&toNum(g.smoothing)>0)warn('smoothing '+g.smoothing+' ignored (the control was removed).');
+    return P;
+  }
+  function apply(P,warn){
+    const num=(id,v)=>{const e=$(id);if(!e||v===undefined)return;e.value=String(v);fire(e,'input');};   // native range + its own handler, as a drag would
+    const sel=(id,v)=>{const e=$(id);if(e&&e.value!==v)e.value=v;};
+    const rm=(typeof raymarcher!=='undefined')?raymarcher:null;
+    const noop=function(){},rg=window.regenerate;
+    window.regenerate=noop;if(rm)rm.setParams=noop;   // own property shadows the prototype method; removed below
+    try{
+      // 1. field type (for reaction-diffusion this also applies the current system's first preset)
+      sel('fieldType',P.ft);onFieldTypeChange();
+      // 2. RD system (re-ranges the RD sliders), then RD values; a manual value makes the preset Custom
+      if(getCurrentRDSystem()!==P.sys){sel('rdSystem',P.sys);onRDSystemChange();}
+      num('rdTile',P.rd.tile);num('rdSteps',P.rd.steps);num('rdDu',P.rd.Du);
+      if(P.rd.Dv!==undefined){const dv=$('rdDv');
+        if(P.sys==='grayscott'){dv.min=1;dv.max=80;dv.step=0.5;}   // hidden for Gray-Scott: widen so the value is kept as exported
+        num('rdDv',P.rd.Dv);}
+      num('rdF',P.rd.F);num('rdK',P.rd.k);
+      sel('rdPreset','custom');
+      // 3. direction
+      onDirModeChange(P.dir.mode);
+      if(P.dir.mode==='single'){num('dirTheta',P.dir.theta);num('dirPhi',P.dir.phi);}
+      else if(P.dir.mode==='ortho'){num('wX',P.dir.w[0]);num('wY',P.dir.w[1]);num('wZ',P.dir.w[2]);}
+      // 4. kappa, waves, frequency, seed
+      num('kappa',P.kappa);num('nWaves',P.nWaves);num('frequency',P.freq);num('rngSeed',P.seed);
+      // 5. hyperuniform values with the lock off, then the lock (hu_width carried the effective width)
+      const lk=$('huLockScale');
+      if(lk){lk.checked=false;huUpdateLockUI();}
+      num('huN',P.hu.n);num('huAspect',P.hu.aspect);num('huWidth',P.hu.width);num('huCross',P.hu.cross);num('huSharp',P.hu.sharp);num('huBlend',P.hu.blend);num('huEll',P.hu.ell);
+      if(lk){lk.checked=P.hu.lock;huUpdateLockUI();}
+      // 6. sigma
+      num('grfSigma',P.grf);
+      // 7. topology, half-invert (no setter: the global and the glyph, as onFlipHalf does), center, half-width
+      onTopologyToggle(P.topo);
+      halfInvert=P.flip;$('flipGlyph').classList.toggle('flipped',P.flip);
+      num('isoLevel',P.iso);num('thickness',P.hw);
+    }finally{
+      window.regenerate=rg;if(rm)delete rm.setParams;
+    }
+    // one rebuild (also clears stale homogenization results). Reaction-diffusion then simulates once through the
+    // Simulate path (its own bake from setParams is held back, so the simulation does not run twice).
+    const rd=P.ft==='reactiondiffusion'&&rm;
+    if(rd)rm._scheduleBake=noop;
+    try{regenerate();}finally{if(rd)delete rm._scheduleBake;}
+    if(rd)onRunRD();
+  }
+  const TOOL={
+    id:'grain',                      // meta.tool as exported. Lab (60-add-design.js) and Mesh (50-recipe-router.js) route on it: never rename
+    name:'F13LD.grain',major:0,      // meta.version '0.9.4': parseInt gives 0
+    exportRecipe:()=>buildExportJSON(),
+    looksLike:r=>!!(r.field&&r.geometry&&FIELDS.indexOf(r.field.type)>=0),
+    plan,apply,
+    label:()=>{const ft=$('fieldType').value;return (ft==='reactiondiffusion'?SYSNAME[getCurrentRDSystem()]||'reaction-diffusion':NAMES[ft]||'')+' grain';}
+  };
+  /* ============ END PER-TOOL =========================================== */
+
+  /* ============ GENERIC (identical across F13LD tools) ================== */
+  // legacy meta.tool values still in use (never rename them: Lab and Mesh route on them)
+  const LEGACY={'noise-scaffold-explorer':'F13LD.noise',grain:'F13LD.grain',beam:'F13LD.beam','beam-builder':'F13LD.beam','bundle-builder':'F13LD.bundle'};
+  const toolName=t=>LEGACY[String(t).toLowerCase()]||String(t).replace(/^f13ld\./i,'F13LD.');
+  const say=(t,o)=>setTimeout(()=>{if(window.F13UI&&F13UI.message)F13UI.message(t,o);},0);
+  // TOOL.id is one meta.tool value or a list of them (first = canonical). tagOf(r) → the listed value this
+  // recipe carries (lower-case, as listed), or null (no tag, or a foreign one).
+  const tagOf=r=>{const t=r&&r.meta&&r.meta.tool;if(typeof t!=='string'||!t)return null;
+    const k=t.toLowerCase();return [].concat(TOOL.id).map(x=>String(x).toLowerCase()).indexOf(k)<0?null:k;};
+  function check(r){
+    if(!r||typeof r!=='object'||Array.isArray(r))return 'Not a recipe.';
+    if(!r.meta||typeof r.meta!=='object')return 'Not a recipe: it has no meta block.';
+    const tool=r.meta.tool;
+    if(typeof tool==='string'&&tool&&tagOf(r)===null)return 'This recipe is from '+toolName(tool)+'. Open it there.';
+    if(!tool&&!TOOL.looksLike(r))return 'Not an '+TOOL.name+' recipe.';
+    return '';
+  }
+  // → {ok, warnings, error?, label?, before?}. Unknown keys are ignored; nothing changes unless ok.
+  function applyRecipe(r){
+    const warnings=[],warn=m=>{if(warnings.indexOf(m)<0)warnings.push(m);};
+    const err=check(r);if(err)return {ok:false,error:err,warnings};
+    const v=String(r.meta.version||'1.0');
+    if(parseInt(v,10)>TOOL.major)warn('Made by a newer '+TOOL.name+' ('+v+'); parts it does not know were skipped.');
+    const tag=tagOf(r);   // which listed meta.tool matched (null for untagged recipes); passed to plan and apply
+    let P;try{P=TOOL.plan(r,warn,tag);}catch(e){return {ok:false,error:e.message,warnings};}
+    const before=TOOL.exportRecipe(),btag=tagOf(before);
+    try{TOOL.apply(P,warn,tag);}
+    catch(e){console.error(e);try{TOOL.apply(TOOL.plan(before,()=>{},btag),()=>{},btag);}catch(_){}
+      return {ok:false,error:'Could not apply this recipe ('+e.message+').',warnings};}
+    return {ok:true,warnings,label:TOOL.label(),before};
+  }
+  function importRecipe(r){
+    const res=applyRecipe(r);
+    if(!res.ok){say(res.error);return res;}
+    const w=res.warnings,note=w.length?w.slice(0,3).join(' · ')+(w.length>3?' · +'+(w.length-3)+' more':''):'';
+    say('Imported '+res.label,{note,action:{label:'Undo',run:()=>{
+      const u=applyRecipe(res.before);say(u.ok?'Back to '+u.label+'.':u.error);}}});
+    return res;
+  }
+  // source: 'file' | 'drop' | 'paste'. Pasted text that is not a recipe is ignored quietly.
+  function importText(text,source){
+    let r;
+    try{r=JSON.parse(text);}catch(e){if(source!=='paste')say('That file is not valid JSON.');return null;}
+    if(source==='paste'&&(!r||typeof r!=='object'||!r.meta||typeof r.meta!=='object'))return null;
+    return importRecipe(r);
+  }
+  function readFile(f){
+    if(!/\.json$/i.test(f.name)&&!/json/i.test(f.type)){say('Not a recipe file. Use a .json exported from '+TOOL.name+'.');return Promise.resolve(null);}
+    if(f.size>5e6){say('That file is too large to be a recipe.');return Promise.resolve(null);}
+    return f.text().then(t=>importText(t,'file'),()=>{say('Could not read that file.');return null;});
+  }
+  // Open recipe…
+  const fi=document.createElement('input');fi.type='file';fi.accept='.json,application/json';fi.hidden=true;fi.id='f13r-file';
+  document.body.appendChild(fi);
+  fi.addEventListener('change',()=>{const f=fi.files&&fi.files[0];fi.value='';if(f)readFile(f);});
+  // drop anywhere: overlay while a file is dragged over the window
+  const ov=document.createElement('div');ov.className='f13r-drop';ov.setAttribute('aria-hidden','true');
+  ov.innerHTML='<div class="f13r-card"><span class="f13r-drop-ic"><svg viewBox="0 0 24 24"><path d="M12 15.5V4.6M7.2 9.2 12 4.4l4.8 4.8"/><path d="M5 19.5h14"/></svg></span>'+
+    '<span><b>Drop to open recipe</b><small>'+TOOL.name+' .json</small></span></div>';
+  document.body.appendChild(ov);
+  const hasFiles=e=>!!(e.dataTransfer&&[...e.dataTransfer.types].indexOf('Files')>=0);
+  let hideT=0;
+  const overlay=on=>{clearTimeout(hideT);ov.classList.toggle('on',on);};
+  window.addEventListener('dragenter',e=>{if(hasFiles(e)){e.preventDefault();overlay(true);}});
+  window.addEventListener('dragover',e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy';
+    overlay(true);hideT=setTimeout(()=>overlay(false),400);});   // dragover repeats while inside; silence = gone
+  window.addEventListener('dragleave',e=>{if(!e.relatedTarget)overlay(false);});
+  window.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();overlay(false);
+    const fs=[...e.dataTransfer.files],f=fs.find(x=>/\.json$/i.test(x.name))||fs[0];if(f)readFile(f);});
+  // paste (Ctrl/Cmd+V) outside text fields
+  const typing=t=>!!t&&(t.isContentEditable||/^(TEXTAREA|SELECT)$/.test(t.tagName)||
+    (t.tagName==='INPUT'&&!/^(checkbox|radio|range|button|submit|reset|file|color)$/i.test(t.type)));
+  document.addEventListener('paste',e=>{
+    if(typing(e.target)||typing(document.activeElement))return;
+    const s=((e.clipboardData&&e.clipboardData.getData('text/plain'))||'').trim();
+    if(s[0]!=='{'||s.length>5e6)return;
+    if(importText(s,'paste'))e.preventDefault();
+  });
+  window.F13Recipe={apply:applyRecipe,importRecipe,importText,readFile,open:()=>fi.click(),TOOL,tagOf};
+})();
+</script>
+
 <!-- ===================================================================== -->
 <!-- ==========  F13LD HELP SYSTEM  ·  modular drop-in (v1.1)  ============ -->
 <!-- Per-tool parts: (1) #f13h-theme :root vars  (2) the CONFIG block.     -->
@@ -5945,9 +6210,9 @@ document.addEventListener('DOMContentLoaded', function(){
         why:'A fast estimate (MIL fabric + Hashin\u2013Shtrikman ceiling); F13LD.lab does the rigorous FFT version.' }
     ]},
     { title:'Handoff', items:[
-      { id:'export', label:'Export JSON / Queue / Mesh / Lab',
-        what:'Saves the current recipe as JSON, or hands it on from the header: Queue adds it to your F13LD.queue (the arrow beside it picks which queue), Mesh opens it in F13LD.mesh, Lab opens it in F13LD.lab.',
-        see:'Downloads a file; in F13LD.mesh the recipe becomes a watertight, printable 3MF. In F13LD.lab it is homogenized by the FFT solver.',
+      { id:'export', label:'Recipe menu',
+        what:'The header Recipe menu. Open recipe… loads a recipe JSON exported from F13LD.grain (you can also drop a .json on the page or paste it). Export JSON saves the current recipe. Queue adds it to your F13LD.queue (Choose queue… picks which one), Mesh opens it in F13LD.mesh, Lab opens it in F13LD.lab.',
+        see:'An imported recipe replaces the design; the header message offers Undo. Homogenization results are not restored: run them again. Export downloads a file; in F13LD.mesh the recipe becomes a watertight, printable 3MF, in F13LD.lab it is homogenized by the FFT solver.',
         why:'The bridge from field design to meshing and printing.' }
     ]}
   ];
