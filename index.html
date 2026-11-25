@@ -344,8 +344,26 @@ body .f13h-tut::after{content:'';position:absolute;left:50%;top:50%;width:max(10
 html.f13w{--rail-w:72px}
 html.f13w [data-native]{display:none!important}
 
-/* header: grain keeps Export / Queue / Mesh / Lab as they are until the Recipe menu (stage 5), so the
-   template's header rules are left out here */
+/* header: the Recipe menu replaces Queue / Mesh / Lab / Export; the queue client's own buttons stay
+   mounted (invisible, no pointer) so its menus and feedback still work when a Recipe item triggers them */
+html.f13w #w-recipe{flex:none}
+html.f13w .fh-right>.f13ldq-split,html.f13w .fh-right>.f13ldq-main{position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 8px);pointer-events:none;z-index:-1}
+html.f13w .fh-right>.f13ldq-split>.f13ldq-main,html.f13w .fh-right>.f13ldq-split>.f13ldq-caret,html.f13w .fh-right>.f13ldq-main{opacity:0}
+html.f13w .fh-right>.f13ldq-split>:not(.f13ldq-main):not(.f13ldq-caret){pointer-events:auto}
+html.f13w #f13ldq-fallback{display:none}
+html.f13w .fh-mesh-btn{display:none}
+@media (max-width:560px){
+  html.f13w .f13ld-header{flex-wrap:nowrap;padding:0 10px;padding-top:env(safe-area-inset-top);column-gap:8px}
+  html.f13w .f13ld-header::after{display:none}
+  html.f13w .fh-left{gap:8px;flex:none}
+  html.f13w .fh-right{display:flex;gap:6px}
+}
+@media (max-width:380px){
+  html.f13w .f13ld-header{column-gap:4px;padding-left:8px;padding-right:8px}
+  html.f13w .fh-divider{display:none}
+  html.f13w .fh-left{gap:6px}
+  html.f13w .fh-right{gap:3px}
+}
 
 /* sliders: the widget carries label · value · hint · track; the row keeps only .row-extra.
    Hit geometry: the track's hit box runs 4px below the widget, the value's 4px above it. */
@@ -355,7 +373,7 @@ html.f13w .f13w-slider{width:100%}
 html.f13w .sl>.row-extra{margin-top:2px}
 .f13w-lab{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px}
 .f13w-lab>label{font-size:13px;font-weight:550;line-height:18px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.lq-sl-head .f13h-i{pointer-events:auto;flex:none}
+.lq-sl-head .f13h-i{pointer-events:auto;flex:none;z-index:3}   /* z: its 44px hit box sits above the track's hit box */
 /* fraction labels (⅛ ¼ …): mono faces lack the glyphs, so use the UI face for those sliders */
 .f13w-frac .lq-sl-num{font-family:var(--lq-font);font-size:15px}
 
@@ -374,7 +392,9 @@ html.f13w #w-clip>.clip-lbl{margin:0}
 
 /* sections */
 html.f13w #sectionsRail>.f13w-rail{margin:14px 0 0 4px}
-html.f13w .sb-fallback{display:none}
+html.f13w .sb-fallback,html.f13w #sectionsRail .sb-fallback,html.f13w #sectionsBar .sb-fallback{display:none}   /* id rules in a tool's stage-2 CSS would otherwise win */
+/* the clip overlay's native pills give way to the clip radio (the wire reuses its .clip-lbl) */
+html.f13w.f13w-clip #clipOverlay{display:none}
 html.f13w #sectionsBar{border-top:none;padding:0 8px env(safe-area-inset-bottom)}
 
 /* help: "show" jumps from a drawer card to its control */
@@ -392,12 +412,6 @@ html.f13w .f13v-p .f13v-r{margin-top:4px;min-height:28px;padding:0 10px;position
 html.f13w .f13v-p .f13v-r::after{content:'';position:absolute;left:-6px;right:-6px;top:-8px;bottom:-8px}
 
 /* ── grain ── */
-/* stage-2 fallback tabs: the #id rule that styles them outranks .sb-fallback above, so hide them here */
-html.f13w #sectionsRail .sb-fallback,html.f13w #sectionsBar .sb-fallback{display:none}
-/* help (i) inside a slider head: its 44px hit box sits above the slider track's hit box, which starts 12px into the widget */
-html.f13w .lq-sl-head .f13h-i{z-index:3}
-/* the clip overlay's native pills are replaced by the clip radio in #w-clip */
-html.f13w #clipOverlay{display:none}
 /* widgets inside column rows (.sc-group.stack) take the row width, not a flex basis */
 html.f13w .sc-group.stack>.f13w-dd,html.f13w .sc-group.stack>.f13w-seg{flex:none;width:100%}
 html.f13w .sc-group.stack>.f13w-dd-c{width:auto}
@@ -406,8 +420,6 @@ html.f13w .hc-row .f13w-dd-c{align-self:flex-start}
 html.f13w #grp-huLock{margin:2px 0 6px}
 html.f13w #flipRow{margin:0 0 6px}
 html.f13w #w-huLock,html.f13w #w-flip{flex:none}
-/* Direction is off for reaction-diffusion: the app sets .off and inert; dim the whole block incl. the canvases */
-html.f13w #dirBiasSection.off{opacity:0.38;filter:saturate(0.4)}
 html.f13w #rdRollBtn{margin-top:8px}
 </style>
 </head>
@@ -661,7 +673,7 @@ html.f13w #rdRollBtn{margin-top:8px}
   </div>
 </div>
 <script id="liquid-ui">
-/* liquid-ui (mshomper/liquid-ui @ dcb3106) — core + widgets bundle. Do not edit here; edit the kit and rebuild. */
+/* liquid-ui (mshomper/liquid-ui @ f79aeaf) — core + widgets bundle. Do not edit here; edit the kit and rebuild. */
 /* ============================================================================
    Liquid UI core — SDF-shaded "liquid" controls for the web.
    One shared WebGL context renders every component into its own 2D canvas.
@@ -2047,6 +2059,7 @@ Liquid.ui = Liquid.ui || {}; Liquid.uiDemo = Liquid.uiDemo || [];
   transition: opacity 160ms ease-out, filter 160ms ease-out, transform 160ms ease-out, color 160ms ease-out; }
 .lq-ws-lab{ position:absolute; left:50%; transform:translate(-50%,-50%); font-size:11px; font-weight:650; letter-spacing:.01em; white-space:nowrap;
   transition: color 160ms ease-out; }
+.lq-ws-tab.dis .lq-ws-ic, .lq-ws-tab.dis .lq-ws-lab{ opacity:.5; }   /* disabled item: dimmed, still opens */
 .lq-ws-tab.near .lq-ws-ic{ color:${INK}; }
 .lq-ws-tab.lifted .lq-ws-lab{ color:oklch(var(--al) var(--ac) var(--ah)); }
 .lq-ws.h .lq-ws-tab.lifted .lq-ws-ic{ opacity:0; filter:blur(4px); transform:translateY(-12px) scale(.7); }
@@ -2081,6 +2094,7 @@ Liquid.ui = Liquid.ui || {}; Liquid.uiDemo = Liquid.uiDemo || [];
     if (!opts.badgeAccent && Math.abs(base.h - badgeAcc.h) < 30) badgeAcc = Liquid.ACCENTS.amber;
     const idx = id => T.findIndex(t => t.id === id);
     let target = Math.max(0, idx(opts.value)), disabled = false, ready = false;
+    const dis = T.map(t => !!t.disabled);   // per-item disabled: dimmed (tab and bead), aria-disabled, but still selectable
 
     const G = horiz
       ? { M: 2, R: 22, gap: 5, barT: 24, barH: 58, corner: 22, iconOff: 21, labOff: 43, H: 84 }
@@ -2214,6 +2228,8 @@ void accentAt(vec2 p, inout vec3 A, inout vec3 AD){   // each pixel takes the co
       surf.set('uCorner', G.corner).set('uRn', G.R + G.gap).set('uR', G.R).set('uScale', sc);
       const f = Math.min(Math.max((head.x - G.cs[0]) / G.slotW, 0), N - 1), i0 = Math.floor(f), i1 = Math.min(i0 + 1, N - 1);
       surf.setAccent(Liquid.mixAccent(accOf(i0), accOf(i1), f - i0));
+      const dm = (dis[i0] ? 0.5 : 1) * (1 - (f - i0)) + (dis[i1] ? 0.5 : 1) * (f - i0);   // bead dims as it rides over a disabled item
+      surf.setAccentOpacity(dm); bead.style.opacity = dm;
       surf.draw();
       bead.style.transform = `translate(${bx}px, ${by}px) scale(${sc})`;
       const n = nearest(head.x);
@@ -2323,6 +2339,13 @@ void accentAt(vec2 p, inout vec3 A, inout vec3 AD){   // each pixel takes the co
       els[i].setAttribute('aria-label', v === 'dot' ? `${t}, new` : (typeof v === 'number' && v > 0) ? `${t}, ${v}` : t);
     }
     T.forEach((_, i) => label(i));
+    function markDis(i) { els[i].classList.toggle('dis', dis[i]); if (dis[i]) els[i].setAttribute('aria-disabled', 'true'); else els[i].removeAttribute('aria-disabled'); }
+    T.forEach((_, i) => markDis(i));
+    // setItemState(id, { disabled }): dim / restore one item. It stays focusable and selectable (the app shows a note).
+    function setItemState(id, { disabled: d } = {}) {
+      const i = idx(id); if (i < 0 || d === undefined || dis[i] === !!d) return;
+      dis[i] = !!d; markDis(i); anim.wake(); write();
+    }
 
     // setBadge(id, value, { accent }): value = number | 'dot' | null; accent (per call) defaults to the badge accent
     function setBadge(id, v, { accent } = {}) {
@@ -2359,7 +2382,7 @@ void accentAt(vec2 p, inout vec3 A, inout vec3 AD){   // each pixel takes the co
         } else select(i, false, false);
         if (!silent && opts.onChange) opts.onChange(T[i].id);
       },
-      setBadge,
+      setBadge, setItemState,
       setDisabled(b) { disabled = !!b; host.setAttribute('aria-disabled', disabled); els.forEach(el => { el.disabled = disabled; }); },
       redraw: write,
       destroy() {
@@ -3072,7 +3095,7 @@ Liquid.ui = Liquid.ui || {}; Liquid.uiDemo = Liquid.uiDemo || [];
 .lq-sl-val{ position:relative; flex:none; pointer-events:auto; background:none; border:0; margin:0; padding:0 2px; border-radius:5px;
   font:inherit; font-family:${MONO}; font-size:13px; line-height:18px; font-variant-numeric:tabular-nums; color:${INK};
   cursor:text; white-space:nowrap; transition:color 140ms ease-out; }
-.lq-sl-val::before{ content:''; position:absolute; left:-14px; right:-8px; top:-4px; bottom:-22px; }
+.lq-sl-val::before{ content:''; position:absolute; right:-8px; width:max(calc(100% + 22px), 52px); top:-4px; bottom:-22px; }   /* hit area >= 44 x 44 even for 1-char values (the value sits at the host's right edge, which clips the 8 px; it grows leftwards) */
 .lq-sl-val:focus-visible{ outline:none; box-shadow:0 0 0 2px oklch(var(--al) var(--ac) var(--ah) / .45); }
 .lq-sl-unit{ margin-left:.35em; color:${DIM}; }
 .lq-sl.grab .lq-sl-num{ color:${ACC}; }
@@ -4686,6 +4709,7 @@ function updateControlVisibility(){
   var dirBody=document.getElementById('dirBiasSection');
   dirBody.classList.toggle('off',isRD);
   if(isRD)dirBody.setAttribute('inert','');else dirBody.removeAttribute('inert');
+  if(window.F13UI&&F13UI.setSectionDisabled)F13UI.setSectionDisabled('direction',isRD);
   document.getElementById('dirNote').hidden=!isRD;
   var isIso=(dirMode==='iso');
 
@@ -5047,8 +5071,6 @@ function onExportJSON(){
 function onClipPill(axis){if(clipState.axis===axis){clipState.axis=0;}else{clipState.axis=axis;clipState.pos=0.0;clipState.side=1;}updateClipPills();if(raymarcher)raymarcher._dirty=true;}
 function updateClipPills(){var nm={1:'X',2:'Y',3:'Z'};[1,2,3].forEach(function(a){var el=document.getElementById('clipPill'+nm[a]);if(!el)return;el.classList.toggle('active',clipState.axis===a);});if(window.F13UI&&F13UI.onClipChange)F13UI.onClipChange(clipState.axis);}   // axis colours come from CSS (--axis-x/y/z)
 function drawClipHandle(rotMat,canvasW,canvasH,camZoom){window.__clipHandleScreen=null;if(clipState.axis<1)return;var cv=document.getElementById('axisCanvas');if(!cv||cv.style.display==='none')return;var ctx=cv.getContext('2d');var H_HALF=Math.PI;function proj(p){var tx=rotMat[0]*p[0]+rotMat[1]*p[1]+rotMat[2]*p[2];var ty=rotMat[3]*p[0]+rotMat[4]*p[1]+rotMat[5]*p[2];var tz=rotMat[6]*p[0]+rotMat[7]*p[1]+rotMat[8]*p[2];var pcz=tz-camZoom;if(pcz>-0.1)return null;var sscl=Math.min(canvasW,canvasH);return [canvasW/2+(-1.6*tx/pcz)*sscl,canvasH/2-(-1.6*ty/pcz)*sscl];}var aIdx=clipState.axis-1,cp=clipState.pos*H_HALF;var c=[0,0,0];c[aIdx]=cp;var sc=proj(c);if(!sc)return;var col=['#22d3ee','#e879f9','#facc15'][aIdx];ctx.save();var free=[0,1,2].filter(function(k){return k!==aIdx;});var sg=[[-1,-1],[1,-1],[1,1],[-1,1]];var pts=sg.map(function(g){var p=[0,0,0];p[aIdx]=cp;p[free[0]]=g[0]*H_HALF;p[free[1]]=g[1]*H_HALF;return proj(p);});if(pts.every(Boolean)){ctx.globalAlpha=0.5;ctx.lineWidth=1.5;ctx.strokeStyle=col;ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);ctx.lineTo(pts[2][0],pts[2][1]);ctx.lineTo(pts[3][0],pts[3][1]);ctx.closePath();ctx.stroke();}ctx.globalAlpha=0.95;ctx.lineWidth=2;ctx.strokeStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],9,0,6.2832);ctx.stroke();ctx.globalAlpha=1;ctx.fillStyle=col;ctx.beginPath();ctx.arc(sc[0],sc[1],3.2,0,6.2832);ctx.fill();ctx.restore();var e=[0,0,0];e[aIdx]=cp+0.4;var se=proj(e);var dirx=0,diry=0,len=0;if(se){var dx=se[0]-sc[0],dy=se[1]-sc[1];len=Math.hypot(dx,dy)||1;dirx=dx/len;diry=dy/len;}window.__clipHandleScreen={x:sc[0],y:sc[1],dirx:dirx,diry:diry,len:len,axisStep:0.4};}
-// the view menu is built now (not at DOMContentLoaded) so the widget wiring below can turn its checkboxes into toggles
-f13View = f13ViewInit({tool:'grain',host:document.getElementById('cw'),canvas:document.getElementById('glCanvas'),redraw:function(){if(raymarcher)raymarcher.requestRender();},moving:function(){return !!(raymarcher&&raymarcher.drawingInt);}});
 // Any control edit counts as interaction (quick frame now, sharp frame once idle). A field slider's
 // change event (release) turns the 48^3 preview bake into the full one.
 document.addEventListener('input',function(){if(raymarcher)raymarcher.kick();},true);
@@ -5058,6 +5080,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if(!glEl){ console.error('Canvas elements not found'); return; }
   gridGen = new SpinodoidGridGenerator();
   raymarcher = new Raymarcher(glEl);
+  f13View = f13ViewInit({tool:'grain',host:document.getElementById('cw'),canvas:glEl,redraw:function(){raymarcher.requestRender();},moving:function(){return !!raymarcher.drawingInt;}});
   if(!raymarcher.gl){ console.warn('WebGL unavailable — 3D view disabled'); }
   setTimeout(function(){ updateControlVisibility(); updateClipPills(); showIndicators(true); raymarcher.running=true; raymarcher.setParams(getParams()); }, 100);
 });
@@ -5229,12 +5252,17 @@ document.addEventListener('DOMContentLoaded', function(){
    Only the CONFIG block changes per tool. Requires: liquid-ui bundle, layout.js (window.F13UI).
    No WebGL → nothing mounts, html.f13w is never set, the native controls remain.
    ========================================================================== */
-(function(){
+(function F13Wire(){
   'use strict';
+  /* Init timing: wait for the DOM (and one task after DOMContentLoaded, so handlers the app registered
+     later have run). Tools no longer reorder their code; a view menu built later still gets mounted below. */
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',()=>setTimeout(F13Wire,0),{once:true});return;}
   if(typeof Liquid==='undefined'||!Liquid.ok||!Liquid.ui)return;
+  if(window.F13UI&&window.F13UI.w&&window.F13UI.w.__wired)return;
   const $=id=>document.getElementById(id);
   const UI=window.F13UI=window.F13UI||{};
   const W=UI.w={};                                                   // mounted widgets (scripts/tests)
+  Object.defineProperty(W,'__wired',{value:true});
 
   /* ============ PER-TOOL CONFIG ======================================== */
   // grain: drawn icon for the Direction section (the kit ships surface / volume / analyze)
@@ -5337,8 +5365,9 @@ document.addEventListener('DOMContentLoaded', function(){
     if(lab){                                                         // the row's own <label> becomes the widget label (help "i" stays beside it)
       const ks=host.querySelector('.lq-sl-label'),wrap=document.createElement('span');
       wrap.className='f13w-lab';
-      if(lab.id){host.querySelectorAll('[aria-labelledby="'+ks.id+'"]').forEach(e=>e.setAttribute('aria-labelledby',lab.id));}   // grain: the app and help engine address labels by id (rdDuLbl…): keep it
-      else lab.id=ks.id;
+      if(lab.id){                                                    // the app / help engine address the label by id: keep it, point the widget's aria-labelledby at it
+        host.querySelectorAll('[aria-labelledby~="'+ks.id+'"]').forEach(e=>e.setAttribute('aria-labelledby',e.getAttribute('aria-labelledby').split(/\s+/).map(t=>t===ks.id?lab.id:t).join(' ')));
+      }else lab.id=ks.id;
       ks.removeAttribute('id');lab.removeAttribute('for');
       wrap.appendChild(lab);ks.replaceWith(wrap);
     }
@@ -5410,14 +5439,27 @@ document.addEventListener('DOMContentLoaded', function(){
     W[s.id||s.btn]=w;
   });
   // shared view menu: checkbox rows → label-first toggles; its reset sets .checked silently, so resync after it
-  const vp=CONFIG.viewMenu&&document.querySelector('#cw .f13v-p');
-  W.view=vp?[...vp.querySelectorAll('input[type=checkbox]')].map(cb=>{
-    const row=cb.closest('label')||cb,host=tgHost('f13w-tg-menu');
-    row.before(host);row.setAttribute('data-native','toggle');
-    return {cb,w:Liquid.ui.toggle(host,{...TG,checked:cb.checked,label:row.textContent.trim(),labelFirst:true,
-      onChange:v=>{cb.checked=v;fire(cb,'change');}})};
-  }):[];
-  if(vp){const r=vp.querySelector('.f13v-r');if(r)r.addEventListener('click',()=>W.view.forEach(({cb,w})=>w.set(cb.checked)));}
+  W.view=[];
+  function mountView(){                                              // true once the menu exists and is mounted
+    const vp=document.querySelector('#cw .f13v-p');if(!vp)return false;
+    const cbs=[...vp.querySelectorAll('input[type=checkbox]')].filter(cb=>!cb.closest('[data-native]'));if(!cbs.length)return false;
+    cbs.forEach(cb=>{
+      const row=cb.closest('label')||cb,host=tgHost('f13w-tg-menu');
+      row.before(host);row.setAttribute('data-native','toggle');
+      W.view.push({cb,w:Liquid.ui.toggle(host,{...TG,checked:cb.checked,label:row.textContent.trim(),labelFirst:true,
+        onChange:v=>{cb.checked=v;fire(cb,'change');}})});
+    });
+    const r=vp.querySelector('.f13v-r');if(r)r.addEventListener('click',()=>W.view.forEach(({cb,w})=>w.set(cb.checked)));
+    return true;
+  }
+  if(CONFIG.viewMenu&&!mountView()){                                 // the menu may be built after us (the shared script, or the app's own handler): watch briefly
+    const mo=new MutationObserver(()=>{if(mountView())stop();});
+    const stop=()=>{mo.disconnect();clearTimeout(tm);window.removeEventListener('load',onLoad);};
+    const onLoad=()=>{if(mountView())stop();};
+    const tm=setTimeout(stop,5000);
+    mo.observe(document.documentElement,{childList:true,subtree:true});
+    window.addEventListener('load',onLoad);
+  }
 
   // ---- run → progress button (synchronous solvers: busy slosh, then flood when results land) ----
   let running=false;
@@ -5437,7 +5479,9 @@ document.addEventListener('DOMContentLoaded', function(){
   // ---- clip radio (axis accents; tap the active axis to release) ----
   if(CONFIG.clip&&$(CONFIG.clip.host)){
     const c=CONFIG.clip,host=$(c.host);
-    host.innerHTML='<span class="clip-lbl">clip</span><div></div>';
+    const lbl=host.querySelector('.clip-lbl')||document.querySelector('#clipOverlay .clip-lbl')||Object.assign(document.createElement('span'),{className:'clip-lbl',textContent:'clip'});
+    host.textContent='';host.append(lbl,document.createElement('div'));   // an existing label (and its styling) is reused
+    document.documentElement.classList.add('f13w-clip');                  // hides the native #clipOverlay pills
     const AX=['x','y','z'];
     W.clip=Liquid.ui.radio(host.lastChild,{options:AX.map((a,i)=>({value:i+1,label:a.toUpperCase(),accent:Liquid.ACCENTS['axis'+a.toUpperCase()]})),
       value:c.get()||null,allowNone:true,orientation:'horizontal',size:'sm',ariaLabel:'Clip plane',
@@ -5488,11 +5532,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // ---- sections: rail (desktop) + tab bar (phone), results badge ----
   function mk(parent,cls){const d=document.createElement('div');d.className=cls;parent.appendChild(d);return d;}
+  CONFIG.sections.forEach(s=>{                                       // a section icon not in Liquid.ICONS: reuse the fallback tab's drawn svg
+    const svg=document.querySelector('.sb-fallback [data-section="'+s.id+'"] svg,#sectionsBar [data-section="'+s.id+'"] svg');
+    if(svg&&!Liquid.ICONS[s.icon])Liquid.ICONS[s.icon]=svg.innerHTML;
+  });
   W.rail=Liquid.ui.sections(mk($('sectionsRail'),'f13w-rail'),{items:CONFIG.sections,value:UI.active,orientation:'vertical',
     accent:ACC,ariaLabel:'Sections',onChange:id=>UI.showSection(id)});
   W.bar=Liquid.ui.sections(mk($('sectionsBar'),'f13w-bar'),{items:CONFIG.sections,value:UI.active,orientation:'horizontal',
     accent:ACC,ariaLabel:'Sections',onChange:id=>UI.showSection(id)});
-  let badge=null;                                                    // 'running' | 'new' | 'stale' | null
+  // per-section disabled: dimmed, still opens (the section shows its own note). CONFIG.sections[i].disabled for the initial state.
+  UI.setSectionDisabled=(id,on)=>{W.rail.setItemState(id,{disabled:!!on});W.bar.setItemState(id,{disabled:!!on});};
+  let badge=null;                                                   // 'running' | 'new' | 'stale' | null
   const A=CONFIG.analyzeSection;
   function setBadge(b){if(!A)return;badge=b;const v=b?'dot':null,o={accent:b==='stale'?'amber':'coral'};W.rail.setBadge(A,v,o);W.bar.setBadge(A,v,o);}
   const seen=()=>UI.active===A;
@@ -5508,8 +5558,14 @@ document.addEventListener('DOMContentLoaded', function(){
     const el=typeof sel==='string'?document.querySelector(sel):sel;if(!el)return false;
     const sec=UI.sectionOf(el);if(sec)UI.showSection(sec);
     if(UI.isPhone()&&UI.setSheet)UI.setSheet('full');
-    if(!el.getClientRects().length)return false;
-    const row=el.closest('.sc-group')||el;
+    // natives are hidden ([data-native]): land on the visible row, else the widget mounted beside the native, else the nearest visible ancestor
+    const vis=n=>!!(n&&n.getClientRects().length);
+    let row=el.closest('.sc-group')||el;
+    if(!vis(row)){
+      const sib=[el.nextElementSibling,el.previousElementSibling].find(n=>n&&/(^|\s)f13w-/.test(n.className)&&vis(n));
+      row=sib||(()=>{let n=el.parentElement;while(n&&!vis(n))n=n.parentElement;return n&&n!==document.body&&n!==document.documentElement?n:null;})();
+    }
+    if(!row)return false;
     row.scrollIntoView({block:'center',behavior:Liquid.state.reduce?'auto':'smooth'});
     row.classList.remove('f13w-flash');void row.offsetWidth;row.classList.add('f13w-flash');
     setTimeout(()=>row.classList.remove('f13w-flash'),1400);

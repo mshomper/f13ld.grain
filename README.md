@@ -158,9 +158,13 @@ Three modes, shared across Spinodoid, GRF, and Hyperuniform field types. Not app
 
 ## Render Quality
 
-The quality overlay (Low / Med / High / Ultra) controls **shader resolution only** — the texture N and raymarcher step count. It does not affect the scalar field computation. Use Section 2D for parameter exploration; switch to Field 3D to assess spatial character.
+Render quality is automatic; there is no quality control. The scalar field is baked at a fixed 128³ and the raymarcher step count is a uniform, so changing a parameter never recompiles the shader.
 
-For reaction-diffusion, quality controls shader march steps (128/192/384/512). The PDE simulation always runs at a fixed 48³ grid. Use the **Sim steps** slider to control field topology — this is a separate axis of control from render quality.
+- **While you interact** (drag a slider, orbit, zoom) the view renders at an adaptive reduced scale for a fast response. Field sliders that change the field also show a quick 48³ preview bake while they move; the full 128³ bake starts when you release.
+- **At rest** the view redraws once at full sharpness, in strips, so the page stays responsive while the sharp frame renders. Any interaction cancels it and starts a new one.
+- **Idle** costs nothing: no frames are drawn until something changes.
+
+For reaction-diffusion the PDE simulation always runs at a fixed 48³ grid, and the result is shown through the same pipeline. Use the **Sim steps** slider to control field topology — this is a separate axis from render quality. Use Section 2D for parameter exploration; switch to Field 3D to assess spatial character.
 
 ---
 
@@ -253,7 +257,7 @@ The exported JSON carries the complete parameter set and, if homogenization has 
 
 **Reaction-diffusion rendering** — the baked u-field is uploaded as a normalized R8 WebGL2 3D texture. Tiling is applied in the fragment shader via `fract()` — no additional compute cost. Normal estimation uses a `uNrmStep` uniform set to 1.5 voxel widths for consistent shading across quality levels.
 
-**Web Worker** — reaction-diffusion PDE integration runs in a background Worker on desktop, keeping the UI responsive during simulation. A synchronous fallback is used on mobile platforms where Workers are unavailable; a `· mobile` badge appears in the quality overlay.
+**Web Worker** — reaction-diffusion PDE integration runs in a background Worker on desktop, keeping the UI responsive during simulation. A synchronous fallback is used on mobile platforms where Workers are unavailable; a `· mobile` badge appears over the viewer.
 
 **Browser compatibility** — Chrome and Firefox. WebGL 2.0 required.
 
