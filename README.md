@@ -4,7 +4,7 @@
 
 **[Open the Tool](https://mshomper.github.io/f13ld.grain)**
 
-<img width="1266" height="981" alt="f13ld grain git image" src="https://github.com/user-attachments/assets/b7055784-8aa7-49c8-b337-7e086554f040" />
+<img width="1440" height="900" alt="F13LD.grain" src="docs/screenshot.png" />
 
 A browser-based implicit field explorer for generating directionally biased stochastic metamaterial scaffolds. Four mathematically distinct field types share a common design pipeline: interactive 2D section view, WebGL 2.0 raymarched 3D preview, MIL-HS mechanical homogenization, and JSON export for downstream meshing and validation.
 
@@ -260,12 +260,7 @@ Changes in v0.12.0:
 
 ## Part of the F13LD Suite
 
-| Tool | Description |
-|---|---|
-| [TPMS Builder](https://mshomper.github.io/f13ld.tpms) | Periodic implicit surfaces — gyroid, Schwartz P, FRD, and more |
-| [Noise Explorer](https://mshomper.github.io/f13ld.noise) | Isotropic stochastic scaffolds via simplex, cellular, FBM, and curl noise |
-| **Grain** | Anisotropic stochastic scaffolds — spinodoid, GRF, hyperuniform, reaction-diffusion |
-| [F13LD.mesh](https://mshomper.github.io/f13ld.mesh) | Watertight 3MF export from any tool JSON — Draft / Standard / Fine resolution |
+The full tool list, what each one does and how recipes move between them: **[f13ld.app](https://f13ld.app)**.
 
 ---
 
