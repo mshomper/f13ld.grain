@@ -29,16 +29,30 @@ The four field types occupy distinct positions in the stochastic geometry landsc
 
 ## Usage
 
-Open `index.html` directly in a browser. No server, no build step, no dependencies.
+Open `index.html` directly in a browser with WebGL2. One file, no build step, no dependencies.
+
+The controls sit in four sections, one at a time: **Field**, **Direction**, **Geometry** and **Analyze**. On desktop a rail beside the panel switches them; on a phone the panel is a bottom sheet with a tab bar. Every (i) opens its help card, and the card's **show** button jumps to the control (or says why it is hidden).
 
 **Recommended workflow:**
 
-1. Select a field type and configure parameters
-2. Explore parameters in **Section 2D** — fast, interactive, full resolution
-3. Switch to **Field 3D** to read the overall spatial character
-4. Run **homogenization** to get effective mechanical properties
-5. **Export JSON** — carries all parameters and homogenization results
-6. Feed the JSON to [F13LD.mesh](https://mshomper.github.io/f13ld.mesh) for watertight 3MF export
+1. **Field** — pick a field type, then its parameters and RNG seed
+2. **Direction** — single, orthotropic or isotropic bias and concentration κ (not used by reaction-diffusion, where the section is dimmed with a note)
+3. **Geometry** — topology, center, half-width, flip, and the clip control to look inside
+4. **Analyze** — run **homogenization** for effective mechanical properties (results clear when the design changes)
+5. Hand the recipe on from the **Recipe** menu in the header: **Mesh** for watertight 3MF in [F13LD.mesh](https://mshomper.github.io/f13ld.mesh), **Lab** for the FFT solver, **Queue** to save it, or **Export JSON**
+
+### Recipe menu
+
+The header **Recipe** menu holds Open recipe…, Export JSON, Queue, Choose queue…, Mesh and Lab.
+
+### Importing a recipe
+
+**Open recipe…**, dropping a `.json` file on the page, or pasting recipe JSON outside a text field loads a grain recipe back into the tool. The header then says *Imported … · Undo*; Undo restores the previous design.
+
+- Recipes from other F13LD tools are refused, with the tool's name.
+- Values outside a control's range are clamped, with a warning. Unknown keys are ignored.
+- Reaction-diffusion recipes simulate automatically after import.
+- Homogenization results are not restored (run it again).
 
 ---
 
@@ -83,7 +97,7 @@ Kernel centers **xᵢ** are placed via a stratified jittered grid (hyperuniform 
 - **Kernel width** — cross-section diameter of each kernel in normalized coordinates.
 - **N kernels** — number of kernel centers. More kernels → denser, more connected network.
 
-> **3D render performance:** N > 80 may be slow in the 3D view. Use Section 2D for high-N exploration.
+> **3D render performance:** N > 80 may be slow to bake and render.
 
 ### Reaction-Diffusion (Gray-Scott)
 
@@ -106,7 +120,7 @@ In 3D, the Gray-Scott model reliably produces the **labyrinthine / bicontinuous 
 - **Tile factor** — repeats the simulated field in the shader (1–4×) without additional compute. Use higher tile values with fine-feature presets.
 - **RNG seed** — sets the initial condition realization.
 
-> ⚠ Exploring outside the confirmed parameter region can produce surprising results — but may also produce nothing at all.
+> Exploring outside the confirmed parameter region can produce surprising results — but may also produce nothing at all.
 
 **Presets (confirmed 3D productive):**
 
@@ -152,7 +166,8 @@ Three modes, shared across Spinodoid, GRF, and Hyperuniform field types. Not app
 
 - **Center** — shifts the isosurface threshold. In half-solid mode this directly controls volume fraction.
 - **Half-width** — slab thickness in sheet and solid modes.
-- **Smoothing** — separable box-filter blur. Rounds sharp junctions and reduces noise in low-N fields. Not applicable to reaction-diffusion.
+
+The smoothing slider is gone. Exports still carry `geometry.smoothing`, fixed at its default, so older readers keep working.
 
 ---
 
@@ -160,11 +175,12 @@ Three modes, shared across Spinodoid, GRF, and Hyperuniform field types. Not app
 
 Render quality is automatic; there is no quality control. The scalar field is baked at a fixed 128³ and the raymarcher step count is a uniform, so changing a parameter never recompiles the shader.
 
-- **While you interact** (drag a slider, orbit, zoom) the view renders at an adaptive reduced scale for a fast response. Field sliders that change the field also show a quick 48³ preview bake while they move; the full 128³ bake starts when you release.
-- **At rest** the view redraws once at full sharpness, in strips, so the page stays responsive while the sharp frame renders. Any interaction cancels it and starts a new one.
-- **Idle** costs nothing: no frames are drawn until something changes.
+- **While you interact** (drag a slider, orbit, zoom) the view renders at an adaptive reduced scale and is upscaled. Field sliders also show a 48³ preview bake while they move; the full 128³ bake starts when you release.
+- **At rest** the view redraws once at full sharpness, in strips, so the page stays responsive. Any interaction cancels it and starts a new one.
+- **Idle** costs nothing: the render loop sleeps until something changes.
+- **Context loss** (GPU reset, tab pressure) is recovered in place: shaders and the field are rebuilt without a reload.
 
-For reaction-diffusion the PDE simulation always runs at a fixed 48³ grid, and the result is shown through the same pipeline. Use the **Sim steps** slider to control field topology — this is a separate axis from render quality. Use Section 2D for parameter exploration; switch to Field 3D to assess spatial character.
+For reaction-diffusion the PDE simulation always runs at a fixed 48³ grid, and the result is shown through the same pipeline. **Sim steps** controls field topology, a separate axis from render quality.
 
 ---
 
@@ -188,14 +204,17 @@ Estimates effective elastic properties from the voxelized scalar field using the
 
 ## Export JSON
 
-The exported JSON carries the complete parameter set and, if homogenization has been run, the mechanical results. This file is the handoff to [F13LD.mesh](https://mshomper.github.io/f13ld.mesh).
+The exported JSON carries the complete parameter set and, if homogenization has been run for the current design, the mechanical results (they are dropped once the design changes). This file is the handoff to [F13LD.mesh](https://mshomper.github.io/f13ld.mesh) and [F13LD.lab](https://mshomper.github.io/f13ld.lab).
 
-The header **Recipe** menu holds Open recipe…, Export JSON, Queue, Choose queue…, Mesh and Lab. A recipe exported from F13LD.grain can be loaded back with Open recipe…, by dropping the `.json` on the page, or by pasting it outside a text field. Import replaces the design (the header message offers Undo), clamps out-of-range values with a warning, ignores keys it does not know, and refuses recipes from other F13LD tools by name. Homogenization results are not restored. Reaction-diffusion recipes simulate automatically after import. `field.hu_lock_scale` records the "lock feature scale" switch: with it on, `hu_width` is the effective width (scaled by the cube root of 30/N), and the import undoes that scaling. F13LD.mesh and F13LD.lab ignore the key.
+Changes in v0.12.0:
+- `field.hu_lock_scale` is new. It records the "lock feature scale" switch: with it on, `hu_width` is the effective width (scaled by the cube root of 30/N) and the import undoes that scaling. F13LD.mesh and F13LD.lab ignore the key.
+- `geometry.smoothing` is kept at its default; the slider was removed. A non-zero value in an imported recipe is ignored with a warning.
+- `meta.version` is now `0.12.0` (it had stayed at `0.9.4`).
 
 **Wave-based fields (spinodoid / GRF / hyperuniform):**
 ```json
 {
-  "meta": { "version": "0.9.1", "tool": "spinodoid-field-explorer", "timestamp": "..." },
+  "meta": { "version": "0.12.0", "tool": "grain", "timestamp": "..." },
   "field": {
     "type": "spinodoid | gaussian | hyperuniform",
     "n_waves": 48,
@@ -204,7 +223,8 @@ The header **Recipe** menu holds Open recipe…, Export JSON, Queue, Choose queu
     "rng_seed": 42,
     "dir_mode": "single | ortho | iso",
     "principal_direction": [0, 0, 1],
-    "ortho_weights": null
+    "ortho_weights": null,
+    "hu_lock_scale": false
   },
   "geometry": {
     "center": 0.0,
@@ -218,7 +238,7 @@ The header **Recipe** menu holds Open recipe…, Export JSON, Queue, Choose queu
 **Reaction-diffusion:**
 ```json
 {
-  "meta": { "version": "0.9.1", "tool": "spinodoid-field-explorer", "timestamp": "..." },
+  "meta": { "version": "0.12.0", "tool": "grain", "timestamp": "..." },
   "field": {
     "type": "reactiondiffusion",
     "rd_Du": 0.14,
@@ -253,11 +273,11 @@ The header **Recipe** menu holds Open recipe…, Export JSON, Queue, Choose queu
 
 **Fully implicit** — all geometry is defined as a scalar field evaluated pointwise. No mesh generation or STL intermediates exist until Manifold levelSet is invoked in F13LD.mesh.
 
-**3D view** — WebGL 2.0 raymarcher. Wave-based fields use sphere tracing with a Lipschitz-estimated step size. Reaction-diffusion uses trilinear interpolation from a baked 3D texture (R8, 48³), with a voxel-aware normal estimation kernel to ensure smooth shading.
+**3D view** — WebGL 2.0 raymarcher over a baked 3D texture. The field is baked in a worker (main-thread fallback) at a fixed 128³, with a 48³ preview while a field slider moves. Step count and threshold are uniforms, so the shader compiles once and never recompiles on a parameter change. Reaction-diffusion bakes its 48³ PDE result into the same texture.
 
-**Section 2D** — CPU rasterization of the scalar field at the chosen axis/position. Always accurate regardless of field type. Recommended for parameter exploration.
+**Reaction-diffusion rendering** — tiling is applied in the fragment shader via `fract()`, with no additional compute cost.
 
-**Reaction-diffusion rendering** — the baked u-field is uploaded as a normalized R8 WebGL2 3D texture. Tiling is applied in the fragment shader via `fract()` — no additional compute cost. Normal estimation uses a `uNrmStep` uniform set to 1.5 voxel widths for consistent shading across quality levels.
+**Controls** — the panel uses [liquid-ui](https://github.com/mshomper/liquid-ui) widgets (sliders, dropdowns, segmented controls, toggles, Recipe menu), drawn in WebGL over the native inputs, which stay the source of state. Without WebGL the native controls are shown instead.
 
 **Web Worker** — reaction-diffusion PDE integration runs in a background Worker on desktop, keeping the UI responsive during simulation. A synchronous fallback is used on mobile platforms where Workers are unavailable; a `· mobile` badge appears over the viewer.
 
